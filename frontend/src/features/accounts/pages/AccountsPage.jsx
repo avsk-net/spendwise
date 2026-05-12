@@ -1,0 +1,171 @@
+import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Plus, Trash2, Wallet, CreditCard, Smartphone, Building2, Coins } from "lucide-react"
+import { useAuthStore } from "../../../store/authStore"
+import { accountsApi } from "../api/accountsApi"
+import toast from "react-hot-toast"
+
+const TYPE_ICONS = {
+  cash: Coins,
+  bank: Building2,
+  credit_card: CreditCard,
+  mobile_banking: Smartphone,
+  other: Wallet,
+}
+
+const TYPE_COLORS = {
+  cash:           "from-yellow-400 to-yellow-500",
+  bank:           "from-blue-500 to-blue-600",
+  credit_card:    "from-purple-500 to-purple-600",
+  mobile_banking: "from-green-500 to-green-600",
+  other:          "from-gray-500 to-gray-600",
+}
+
+const EMPTY_FORM = { name: "", type: "bank", balance: "0" }
+
+export default function AccountsPage() {
+  const { user } = useAuthStore()
+  const qc = useQueryClient()
+  const c = user?.currency || ""
+  const [modal, setModal] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
+
+  const { data: accounts = [], isLoading } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => accountsApi.list().then(r => r.data),
+  })
+
+  const { mutate: create, isPending } = useMutation({
+    mutationFn: (data) => accountsApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] })
+      toast.success("Account created")
+      setModal(false)
+      setForm(EMPTY_FORM)
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Failed"),
+  })
+
+  const { mutate: remove } = useMutation({
+    mutationFn: (id) => accountsApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] })
+      toast.success("Account removed")
+    },
+  })
+
+  const totalBalance = accounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    create({ ...form, balance: parseFloat(form.balance) })
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Total balance banner */}
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-6 text-white">
+        <p className="text-gray-400 text-sm mb-1">Total Balance Across All Accounts</p>
+        <p className="text-3xl font-bold">
+          {c} {totalBalance.toLocaleString("en", { minimumFractionDigits: 2 })}
+        </p>
+        <p className="text-gray-400 text-sm mt-1">{accounts.length} account{accounts.length !== 1 ? "s" : ""}</p>
+      </div>
+
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Your Accounts</h2>
+        <button onClick={() => setModal(true)}
+          className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+          <Plus size={16} /> Add Account
+        </button>
+      </div>
+
+      {/* Account cards */}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : accounts.length === 0 ? (
+        <div className="text-center py-16 text-gray-400 text-sm">
+          No accounts yet. Add your first account to get started.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {accounts.map(a => {
+            const Icon = TYPE_ICONS[a.type] || Wallet
+            const gradient = TYPE_COLORS[a.type] || TYPE_COLORS.other
+            const bal = parseFloat(a.balance || 0)
+            return (
+              <div key={a.id}
+                className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                <div className={`bg-gradient-to-r ${gradient} p-4 flex justify-between items-start`}>
+                  <div className="bg-white/20 rounded-xl p-2">
+                    <Icon size={20} className="text-white" />
+                  </div>
+                  <button
+                    onClick={() => { if (window.confirm(`Remove ${a.name}?`)) remove(a.id) }}
+                    className="text-white/60 hover:text-white transition-colors">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <div className="p-4">
+                  <p className="font-semibold text-gray-800 dark:text-white">{a.name}</p>
+                  <p className="text-xs text-gray-400 capitalize mb-3">{a.type.replace("_", " ")}</p>
+                  <p className={`text-xl font-bold ${bal >= 0 ? "text-gray-900 dark:text-white" : "text-red-500"}`}>
+                    {c} {bal.toLocaleString("en", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Modal */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-800 dark:text-white">Add Account</h2>
+              <button onClick={() => setModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <form onSubmit={handleSubmit} className="px-6 py-4 space-y-3">
+              <input type="text" placeholder="Account name (e.g. bKash, BRAC Bank)" required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+
+              <select required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                <option value="cash">Cash</option>
+                <option value="bank">Bank</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="mobile_banking">Mobile Banking</option>
+                <option value="other">Other</option>
+              </select>
+
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Opening Balance</label>
+                <input type="number" step="0.01" placeholder="0.00"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setModal(false)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isPending}
+                  className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
+                  {isPending ? "Creating…" : "Create Account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

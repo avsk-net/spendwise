@@ -1,9 +1,17 @@
 from fastapi import APIRouter
+
 from app.api.v1.endpoints import (
-    auth, users, accounts, categories,
-    transactions, budgets, recurring,
-    reports, notifications, websocket,
+    accounts,
+    auth,
+    budgets,
+    categories,
+    notifications,
+    recurring,
+    reports,
     saving_goals,
+    transactions,
+    users,
+    websocket,
 )
 
 v1_router = APIRouter(prefix="/api/v1")

@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Generic, Optional, Type, TypeVar
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import Base
 from app.models.base import SoftDeleteMixin
 
@@ -23,14 +25,10 @@ class BaseRepository(Generic[ModelType]):
         return q
 
     async def get_by_id(self, id: uuid.UUID) -> Optional[ModelType]:
-        result = await self.db.execute(
-            self._base_query().where(self.model.id == id)
-        )
+        result = await self.db.execute(self._base_query().where(self.model.id == id))
         return result.scalar_one_or_none()
 
-    async def get_by_id_for_user(
-        self, id: uuid.UUID, user_id: uuid.UUID
-    ) -> Optional[ModelType]:
+    async def get_by_id_for_user(self, id: uuid.UUID, user_id: uuid.UUID) -> Optional[ModelType]:
         result = await self.db.execute(
             self._base_query().where(
                 self.model.id == id,
@@ -40,9 +38,7 @@ class BaseRepository(Generic[ModelType]):
         return result.scalar_one_or_none()
 
     async def list_for_user(self, user_id: uuid.UUID) -> list[ModelType]:
-        result = await self.db.execute(
-            self._base_query().where(self.model.user_id == user_id)
-        )
+        result = await self.db.execute(self._base_query().where(self.model.user_id == user_id))
         return list(result.scalars().all())
 
     async def save(self, instance: ModelType) -> ModelType:

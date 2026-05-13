@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError
 
-from app.core.logging import logger
 from app.core.security import decode_access_token
 from app.services.ws_manager import manager
 

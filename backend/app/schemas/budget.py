@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import uuid
 from datetime import date
 from decimal import Decimal
+
 from pydantic import BaseModel
 
 

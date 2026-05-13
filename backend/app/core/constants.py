@@ -1,5 +1,5 @@
 # Budget thresholds
-BUDGET_WARNING_THRESHOLD = 80.0    # percent — triggers warning notification
+BUDGET_WARNING_THRESHOLD = 80.0  # percent — triggers warning notification
 BUDGET_EXCEEDED_THRESHOLD = 100.0  # percent — triggers exceeded notification
 
 # Pagination

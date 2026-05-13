@@ -1,5 +1,7 @@
 import uuid
+
 from pydantic import BaseModel
+
 from app.enums.category_type import CategoryType
 
 

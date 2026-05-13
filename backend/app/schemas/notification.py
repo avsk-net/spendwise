@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
+
 from pydantic import BaseModel
+
 from app.enums.notification_type import NotificationType
 
 

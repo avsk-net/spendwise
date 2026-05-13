@@ -1,11 +1,13 @@
 import datetime
 from typing import Optional
+
+from sqlalchemy import text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import text, Index
 
 
 class TimestampMixin:
     """Adds created_at and updated_at to any model."""
+
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("NOW()"), nullable=False
     )
@@ -23,6 +25,7 @@ class SoftDeleteMixin:
     Soft delete lets us recover data and maintain history.
     Repositories must filter deleted_at IS NULL in all queries.
     """
+
     deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(
         nullable=True,
         default=None,

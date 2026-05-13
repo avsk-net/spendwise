@@ -1,14 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+
+from app.api.v1.router import v1_router
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.api.v1.router import v1_router
 from app.exceptions.handlers import register_exception_handlers
-from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.logging import RequestLoggingMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 
 setup_logging()
 

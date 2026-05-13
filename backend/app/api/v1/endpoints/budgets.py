@@ -1,17 +1,19 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.budget import Budget
-from app.models.transaction import Transaction
-from app.schemas.budget import BudgetCreate, BudgetUpdate, BudgetResponse
 from app.enums.transaction_type import TransactionType
 from app.exceptions.business import BudgetNotFoundError, DuplicateBudgetError
+from app.models.budget import Budget
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
@@ -41,10 +43,16 @@ async def list_budgets(
         )
         spent: Decimal = spent_result.scalar()
         percent = float(spent / b.amount * 100) if b.amount > 0 else 0.0
-        response.append(BudgetResponse(
-            id=b.id, category_id=b.category_id, month=b.month,
-            amount=b.amount, spent=spent, percent=percent,
-        ))
+        response.append(
+            BudgetResponse(
+                id=b.id,
+                category_id=b.category_id,
+                month=b.month,
+                amount=b.amount,
+                spent=spent,
+                percent=percent,
+            )
+        )
     return response
 
 
@@ -64,8 +72,10 @@ async def create_budget(
         raise DuplicateBudgetError()
     await db.refresh(budget)
     return BudgetResponse(
-        id=budget.id, category_id=budget.category_id,
-        month=budget.month, amount=budget.amount,
+        id=budget.id,
+        category_id=budget.category_id,
+        month=budget.month,
+        amount=budget.amount,
     )
 
 
@@ -85,8 +95,10 @@ async def update_budget(
     budget.amount = data.amount
     await db.commit()
     return BudgetResponse(
-        id=budget.id, category_id=budget.category_id,
-        month=budget.month, amount=budget.amount,
+        id=budget.id,
+        category_id=budget.category_id,
+        month=budget.month,
+        amount=budget.amount,
     )
 
 

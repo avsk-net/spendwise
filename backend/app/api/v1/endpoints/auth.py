@@ -2,20 +2,28 @@ from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+)
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User, RefreshToken
-from app.schemas.user import UserRegister, UserLogin, TokenResponse, RefreshRequest, AccessTokenResponse
-from app.core.security import (
-    hash_password, verify_password, create_access_token,
-    create_refresh_token, hash_token,
+from app.exceptions.auth import InvalidCredentialsError, InvalidTokenError
+from app.models.audit_log import AuditAction, AuditLog
+from app.models.user import RefreshToken, User
+from app.repositories.user_repository import RefreshTokenRepository, UserRepository
+from app.schemas.user import (
+    AccessTokenResponse,
+    RefreshRequest,
+    TokenResponse,
+    UserLogin,
+    UserRegister,
 )
-from app.core.config import settings
-from app.repositories.user_repository import UserRepository, RefreshTokenRepository
 from app.services.seed import seed_categories_for_user
-from app.exceptions.auth import InvalidTokenError, InvalidCredentialsError
-from app.exceptions.business import UserNotFoundError
-from app.models.audit_log import AuditLog, AuditAction
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -28,6 +36,7 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
 
     if await user_repo.email_or_username_exists(data.email, data.username):
         from app.core.exceptions import ValidationError
+
         raise ValidationError("Email or username already taken", "DUPLICATE_USER")
 
     user = User(
@@ -41,13 +50,17 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
 
     raw_refresh, token_hash, expires_at = create_refresh_token()
     token_repo = RefreshTokenRepository(db)
-    await token_repo.save(RefreshToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at))
+    await token_repo.save(
+        RefreshToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+    )
 
-    db.add(AuditLog(
-        user_id=user.id,
-        action=AuditAction.REGISTER,
-        ip_address=request.client.host if request.client else None,
-    ))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.REGISTER,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()
 
     return TokenResponse(access_token=create_access_token(str(user.id)), refresh_token=raw_refresh)
@@ -60,11 +73,13 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     user = await user_repo.get_by_email(data.email)
 
     if not user or not verify_password(data.password, user.hashed_password):
-        db.add(AuditLog(
-            action=AuditAction.LOGIN_FAILED,
-            ip_address=request.client.host if request.client else None,
-            new_value={"email": data.email},
-        ))
+        db.add(
+            AuditLog(
+                action=AuditAction.LOGIN_FAILED,
+                ip_address=request.client.host if request.client else None,
+                new_value={"email": data.email},
+            )
+        )
         await db.commit()
         raise InvalidCredentialsError()
 
@@ -72,7 +87,13 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     await RefreshTokenRepository(db).save(
         RefreshToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
     )
-    db.add(AuditLog(user_id=user.id, action=AuditAction.LOGIN, ip_address=request.client.host if request.client else None))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.LOGIN,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()
 
     return TokenResponse(access_token=create_access_token(str(user.id)), refresh_token=raw_refresh)
@@ -94,5 +115,11 @@ async def logout(
     user: User = Depends(get_current_user),
 ):
     await RefreshTokenRepository(db).revoke(data.refresh_token, user.id)
-    db.add(AuditLog(user_id=user.id, action=AuditAction.LOGOUT, ip_address=request.client.host if request.client else None))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.LOGOUT,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()

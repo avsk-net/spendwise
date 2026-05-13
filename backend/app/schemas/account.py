@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+
 from pydantic import BaseModel
+
 from app.enums.account_type import AccountType
 
 

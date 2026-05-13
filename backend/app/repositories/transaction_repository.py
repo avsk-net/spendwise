@@ -2,11 +2,13 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from typing import Optional
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from app.repositories.base import BaseRepository
-from app.models.transaction import Transaction
+
 from app.enums import TransactionType
+from app.models.transaction import Transaction
+from app.repositories.base import BaseRepository
 from app.utils.pagination import PaginationParams
 
 
@@ -46,7 +48,11 @@ class TransactionRepository(BaseRepository[Transaction]):
         total = count_result.scalar() or 0
 
         # Apply pagination
-        query = query.order_by(Transaction.date.desc()).offset(pagination.offset).limit(pagination.limit)
+        query = (
+            query.order_by(Transaction.date.desc())
+            .offset(pagination.offset)
+            .limit(pagination.limit)
+        )
         result = await self.db.execute(query)
         return list(result.scalars().all()), total
 

@@ -1,13 +1,15 @@
 import uuid
+
 from fastapi import Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.models.user import User
+
 from app.core.security import decode_access_token
+from app.database import get_db
+from app.exceptions.auth import InvalidCredentialsError, InvalidTokenError
+from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.exceptions.auth import InvalidTokenError, InvalidCredentialsError
 
 bearer = HTTPBearer()
 

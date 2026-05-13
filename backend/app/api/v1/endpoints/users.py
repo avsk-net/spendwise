@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import ValidationError
+from app.core.security import hash_password, verify_password
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.user import UserResponse, UserUpdate, PasswordChange
-from app.core.security import verify_password, hash_password
-from app.core.exceptions import ValidationError
+from app.schemas.user import PasswordChange, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 

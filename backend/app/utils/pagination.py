@@ -1,4 +1,5 @@
 import math
+
 from pydantic import BaseModel, field_validator
 
 DEFAULT_PAGE_SIZE = 50

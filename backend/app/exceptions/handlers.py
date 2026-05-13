@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 from app.core.exceptions import SpendwiseException
 from app.core.logging import logger
 

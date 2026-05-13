@@ -1,15 +1,23 @@
 from datetime import date
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.transaction import Transaction
-from app.models.category import Category
-from app.schemas.report import SummaryResponse, CategoryBreakdown, DailyTotal, MonthlyTotal, TrendPoint
 from app.enums.transaction_type import TransactionType
-from decimal import Decimal
+from app.models.category import Category
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.schemas.report import (
+    CategoryBreakdown,
+    DailyTotal,
+    MonthlyTotal,
+    SummaryResponse,
+    TrendPoint,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -50,7 +58,9 @@ async def by_category(
 ):
     result = await db.execute(
         select(
-            Category.id, Category.name, Category.icon,
+            Category.id,
+            Category.name,
+            Category.icon,
             func.coalesce(func.sum(Transaction.amount), 0).label("total"),
         )
         .join(Transaction, Transaction.category_id == Category.id)
@@ -68,8 +78,10 @@ async def by_category(
     grand = sum(r.total for r in rows) or Decimal("1")
     return [
         CategoryBreakdown(
-            category_id=str(r.id), category_name=r.name,
-            icon=r.icon, total=r.total,
+            category_id=str(r.id),
+            category_name=r.name,
+            icon=r.icon,
+            total=r.total,
             percent=float(r.total / grand * 100),
         )
         for r in rows
@@ -84,8 +96,11 @@ async def daily(
 ):
     month_start = month.replace(day=1)
     result = await db.execute(
-        select(Transaction.date, Transaction.type,
-               func.coalesce(func.sum(Transaction.amount), 0).label("total"))
+        select(
+            Transaction.date,
+            Transaction.type,
+            func.coalesce(func.sum(Transaction.amount), 0).label("total"),
+        )
         .where(
             Transaction.user_id == user.id,
             func.date_trunc("month", Transaction.date) == month_start,
@@ -101,7 +116,10 @@ async def daily(
         if key not in daily:
             daily[key] = {"income": Decimal("0"), "expense": Decimal("0")}
         daily[key][row.type.value] = row.total
-    return [DailyTotal(date=k, income=v["income"], expense=v["expense"]) for k, v in sorted(daily.items())]
+    return [
+        DailyTotal(date=k, income=v["income"], expense=v["expense"])
+        for k, v in sorted(daily.items())
+    ]
 
 
 @router.get("/monthly", response_model=list[MonthlyTotal])
@@ -131,7 +149,10 @@ async def monthly(
         if key not in monthly:
             monthly[key] = {"income": Decimal("0"), "expense": Decimal("0")}
         monthly[key][row.type.value] = row.total
-    return [MonthlyTotal(month=k, income=v["income"], expense=v["expense"]) for k, v in sorted(monthly.items())]
+    return [
+        MonthlyTotal(month=k, income=v["income"], expense=v["expense"])
+        for k, v in sorted(monthly.items())
+    ]
 
 
 @router.get("/trend", response_model=list[TrendPoint])

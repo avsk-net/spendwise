@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import uuid
 from datetime import date
 from decimal import Decimal
+
 from pydantic import BaseModel, field_validator
-from app.enums.transaction_type import TransactionType
+
 from app.enums.frequency import Frequency
+from app.enums.transaction_type import TransactionType
 
 
 class RecurringCreate(BaseModel):

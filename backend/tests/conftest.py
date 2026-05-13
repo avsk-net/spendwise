@@ -1,9 +1,9 @@
-import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.database import Base, get_db
+from app.main import app
 
 TEST_DB_URL = "postgresql+asyncpg://spendwise:spendwise@localhost:5432/spendwise_test"
 
@@ -38,12 +38,15 @@ async def client(db: AsyncSession):
 @pytest_asyncio.fixture
 async def auth_client(client: AsyncClient):
     """Returns (client, tokens) with a registered user already logged in."""
-    r = await client.post("/api/auth/register", json={
-        "email": "fixture@example.com",
-        "username": "fixtureuser",
-        "password": "securepass123",
-        "currency": "BDT",
-    })
+    r = await client.post(
+        "/api/auth/register",
+        json={
+            "email": "fixture@example.com",
+            "username": "fixtureuser",
+            "password": "securepass123",
+            "currency": "BDT",
+        },
+    )
     tokens = r.json()
     client.headers["Authorization"] = f"Bearer {tokens['access_token']}"
     return client, tokens

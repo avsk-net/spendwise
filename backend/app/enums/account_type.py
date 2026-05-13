@@ -1,5 +1,6 @@
 import enum
 
+
 class AccountType(str, enum.Enum):
     cash = "cash"
     bank = "bank"

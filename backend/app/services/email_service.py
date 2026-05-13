@@ -43,7 +43,9 @@ def send_monthly_report_email(
     top_categories: list[dict],
 ) -> bool:
     subject = f"SpendWise — Your {month_label} Financial Summary"
-    html = _render_monthly_report(username, month_label, currency, total_income, total_expense, top_categories)
+    html = _render_monthly_report(
+        username, month_label, currency, total_income, total_expense, top_categories
+    )
     return send_email(to, subject, html)
 
 

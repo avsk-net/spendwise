@@ -24,9 +24,11 @@ def send_monthly_reports(self):
 
     try:
         with SyncSession() as db:
-            users = db.execute(
-                select(User).where(User.email_reports_enabled == True)  # noqa: E712
-            ).scalars().all()
+            users = (
+                db.execute(select(User).where(User.email_reports_enabled == True))  # noqa: E712
+                .scalars()
+                .all()
+            )
 
             sent = failed = 0
             for user in users:

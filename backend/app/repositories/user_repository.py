@@ -1,11 +1,13 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
-from app.repositories.base import BaseRepository
-from app.models.user import User, RefreshToken
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.security import hash_token
+from app.models.user import RefreshToken, User
+from app.repositories.base import BaseRepository
 
 
 class UserRepository(BaseRepository[User]):
@@ -15,16 +17,12 @@ class UserRepository(BaseRepository[User]):
         super().__init__(User, db)
 
     async def get_by_email(self, email: str) -> Optional[User]:
-        result = await self.db.execute(
-            select(User).where(User.email == email)
-        )
+        result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def email_or_username_exists(self, email: str, username: str) -> bool:
         result = await self.db.execute(
-            select(User).where(
-                (User.email == email) | (User.username == username)
-            )
+            select(User).where((User.email == email) | (User.username == username))
         )
         return result.scalar_one_or_none() is not None
 
@@ -41,7 +39,6 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 RefreshToken.token_hash == hash_token(raw_token),
                 RefreshToken.revoked == False,  # noqa: E712
                 RefreshToken.expires_at > datetime.utcnow(),
-
             )
         )
         return result.scalar_one_or_none()

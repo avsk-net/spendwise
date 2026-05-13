@@ -28,7 +28,7 @@ export function useWebSocket(onMessage) {
         try {
           const data = JSON.parse(e.data)
           onMessageRef.current?.(data)
-        } catch {}
+        } catch { /* ignore non-JSON messages */ }
       }
 
       ws.current.onclose = (e) => {

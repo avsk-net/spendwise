@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createBrowserRouter } from "react-router-dom"
 import DashboardLayout from "../layouts/DashboardLayout"
 import AuthLayout from "../layouts/AuthLayout"

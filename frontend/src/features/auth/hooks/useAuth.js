@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import { authApi } from "../api/authApi"

@@ -22,7 +22,7 @@ export default function Sidebar() {
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    try { await authApi.logout(refreshToken) } catch {}
+    try { await authApi.logout(refreshToken) } catch { /* ignore logout errors */ }
     logout()
     navigate("/login")
   }

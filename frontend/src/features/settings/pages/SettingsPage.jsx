@@ -1,8 +1,7 @@
 import { useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { User, Lock, Bell, Trash2, CheckCircle } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
-import { authApi } from "../../auth/api/authApi"
 import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import apiClient from "../../../lib/axios"
@@ -10,7 +9,6 @@ import apiClient from "../../../lib/axios"
 export default function SettingsPage() {
   const { user, setUser, logout } = useAuthStore()
   const navigate = useNavigate()
-  const qc = useQueryClient()
 
   const [profile, setProfile] = useState({
     username: user?.username || "",

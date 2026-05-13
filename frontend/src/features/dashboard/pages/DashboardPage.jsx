@@ -8,7 +8,7 @@ import { transactionsApi as txApi } from "../../transactions/api/transactionsApi
 import ChartWrapper from "../../../components/charts/ChartWrapper"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid
+  PieChart, Pie, Cell, CartesianGrid
 } from "recharts"
 import { TrendingUp, TrendingDown, Wallet, Activity } from "lucide-react"
 import { Link } from "react-router-dom"
@@ -21,8 +21,6 @@ export default function DashboardPage() {
   const today = new Date()
   const monthStart = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`
   const todayStr = today.toISOString().split("T")[0]
-  const yearStart = `${today.getFullYear()}-01-01`
-
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => accountsApi.list().then(r => r.data),
@@ -43,7 +41,7 @@ export default function DashboardPage() {
     queryFn: () => reportsApi.byCategory({ date_from: monthStart, date_to: todayStr }).then(r => r.data),
   })
 
-  const { data: budgets = [], isLoading: budgetsLoading } = useQuery({
+  const { data: budgets = [] } = useQuery({
     queryKey: ["budgets", monthStart],
     queryFn: () => budgetsApi.list(monthStart).then(r => r.data),
   })

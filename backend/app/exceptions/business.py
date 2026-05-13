@@ -38,3 +38,8 @@ class DuplicateBudgetError(BusinessError):
             "BUDGET_DUPLICATE",
             409,
         )
+
+
+class SavingGoalNotFoundError(NotFoundError):
+    def __init__(self):
+        super().__init__("Saving goal")

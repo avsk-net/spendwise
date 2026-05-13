@@ -1,31 +1,21 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from jose import JWTError
+
 from app.core.logging import logger
+from app.core.security import decode_access_token
+from app.services.ws_manager import manager
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 
 
-class ConnectionManager:
-    def __init__(self):
-        self._connections: dict[str, WebSocket] = {}
+@router.websocket("")
+async def websocket_endpoint(ws: WebSocket, token: str = Query(...)):
+    try:
+        user_id = decode_access_token(token)
+    except JWTError:
+        await ws.close(code=4001, reason="Invalid token")
+        return
 
-    async def connect(self, user_id: str, ws: WebSocket) -> None:
-        await ws.accept()
-        self._connections[user_id] = ws
-
-    def disconnect(self, user_id: str) -> None:
-        self._connections.pop(user_id, None)
-
-    async def send(self, user_id: str, payload: dict) -> None:
-        ws = self._connections.get(user_id)
-        if ws:
-            await ws.send_json(payload)
-
-
-manager = ConnectionManager()
-
-
-@router.websocket("/{user_id}")
-async def websocket_endpoint(ws: WebSocket, user_id: str):
     await manager.connect(user_id, ws)
     try:
         while True:

@@ -16,6 +16,7 @@ const BudgetsPage      = lazy(() => import("../features/budgets/pages/BudgetsPag
 const RecurringPage    = lazy(() => import("../features/recurring/pages/RecurringPage"))
 const ReportsPage      = lazy(() => import("../features/reports/pages/ReportsPage"))
 const SettingsPage     = lazy(() => import("../features/settings/pages/SettingsPage"))
+const SavingGoalsPage  = lazy(() => import("../features/saving-goals/pages/SavingGoalsPage"))
 
 const Fallback = () => <div className="p-6 text-text-secondary text-sm">Loading…</div>
 
@@ -42,7 +43,8 @@ export const router = createBrowserRouter([
       { path: "/accounts",     element: <Suspense fallback={<Fallback />}><AccountsPage /></Suspense> },
       { path: "/budgets",      element: <Suspense fallback={<Fallback />}><BudgetsPage /></Suspense> },
       { path: "/recurring",    element: <Suspense fallback={<Fallback />}><RecurringPage /></Suspense> },
-      { path: "/reports",      element: <Suspense fallback={<Fallback />}><ReportsPage /></Suspense> },
+      { path: "/reports",       element: <Suspense fallback={<Fallback />}><ReportsPage /></Suspense> },
+      { path: "/saving-goals", element: <Suspense fallback={<Fallback />}><SavingGoalsPage /></Suspense> },
       { path: "/settings",     element: <Suspense fallback={<Fallback />}><SettingsPage /></Suspense> },
     ],
   },

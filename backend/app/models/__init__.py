@@ -8,3 +8,4 @@ from app.models.transaction import Transaction
 from app.models.budget import Budget
 from app.models.notification import Notification
 from app.models.audit_log import AuditLog
+from app.models.saving_goal import SavingGoal

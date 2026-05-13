@@ -3,6 +3,7 @@ from app.api.v1.endpoints import (
     auth, users, accounts, categories,
     transactions, budgets, recurring,
     reports, notifications, websocket,
+    saving_goals,
 )
 
 v1_router = APIRouter(prefix="/api/v1")
@@ -17,3 +18,4 @@ v1_router.include_router(recurring.router)
 v1_router.include_router(reports.router)
 v1_router.include_router(notifications.router)
 v1_router.include_router(websocket.router)
+v1_router.include_router(saving_goals.router)

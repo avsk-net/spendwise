@@ -1,19 +1,25 @@
 import uuid
 from decimal import Decimal
+
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
-from app.models.account import Account
-from app.models.transaction import Transaction
-from app.schemas.transaction import (
-    TransactionCreate, TransactionUpdate,
-    TransactionResponse, TransactionFilters,
-)
 from app.enums.transaction_type import TransactionType
 from app.exceptions.business import AccountNotFoundError, TransactionNotFoundError
+from app.models.account import Account
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.schemas.transaction import (
+    TransactionCreate,
+    TransactionFilters,
+    TransactionResponse,
+    TransactionUpdate,
+)
+from app.services.budget_service import check_budget
+from app.services.ws_manager import manager
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -73,8 +79,17 @@ async def create_transaction(
     txn = Transaction(user_id=user.id, **data.model_dump())
     db.add(txn)
     account.balance += _delta(data.type, data.amount)
+
+    notif_payload = None
+    if data.type == TransactionType.expense:
+        notif_payload = await check_budget(user.id, data.category_id, data.date, db)
+
     await db.commit()
     await db.refresh(txn)
+
+    if notif_payload:
+        await manager.send(str(user.id), {"type": "notification", "data": notif_payload})
+
     return txn
 
 
@@ -120,8 +135,18 @@ async def update_transaction(
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(txn, field, value)
     account.balance += _delta(txn.type, txn.amount)
+
+    notif_payload = None
+    amount_or_category_changed = data.amount is not None or data.category_id is not None
+    if txn.type == TransactionType.expense and amount_or_category_changed:
+        notif_payload = await check_budget(user.id, txn.category_id, txn.date, db)
+
     await db.commit()
     await db.refresh(txn)
+
+    if notif_payload:
+        await manager.send(str(user.id), {"type": "notification", "data": notif_payload})
+
     return txn
 
 

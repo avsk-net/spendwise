@@ -1,8 +1,8 @@
-import { Bell, Sun, Moon, Search } from "lucide-react"
+import { Bell, Sun, Moon } from "lucide-react"
 import { useLocation } from "react-router-dom"
 import { useThemeStore } from "../../store/themeStore"
 import { useNotifStore } from "../../store/notifStore"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { notificationsApi } from "../../features/notifications/api/notificationsApi"
 import { useEffect, useState } from "react"
 
@@ -12,6 +12,7 @@ const TITLES = {
   "/accounts":     "Accounts",
   "/budgets":      "Budgets",
   "/recurring":    "Recurring",
+  "/saving-goals": "Goals",
   "/reports":      "Reports",
   "/settings":     "Settings",
 }
@@ -19,18 +20,26 @@ const TITLES = {
 export default function TopBar() {
   const { pathname } = useLocation()
   const { theme, toggleTheme } = useThemeStore()
-  const { unreadCount, setNotifications } = useNotifStore()
+  const { notifications, unreadCount, setNotifications, clearUnread } = useNotifStore()
   const [showNotifs, setShowNotifs] = useState(false)
+  const queryClient = useQueryClient()
 
   const { data } = useQuery({
     queryKey: ["notifications"],
     queryFn: () => notificationsApi.list().then((r) => r.data),
-    refetchInterval: 60000,
+    refetchInterval: 60_000,
   })
 
   useEffect(() => {
     if (data) setNotifications(data)
   }, [data])
+
+  async function handleMarkAllRead() {
+    await notificationsApi.markAllRead()
+    clearUnread()
+    queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    setShowNotifs(false)
+  }
 
   return (
     <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between px-6 shrink-0">
@@ -59,14 +68,26 @@ export default function TopBar() {
             <div className="absolute right-0 top-10 w-80 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                 <span className="font-medium text-sm text-gray-800 dark:text-white">Notifications</span>
-                <button onClick={() => setShowNotifs(false)} className="text-gray-400 text-xs hover:text-gray-600">Close</button>
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button onClick={handleMarkAllRead}
+                      className="text-xs text-indigo-500 hover:text-indigo-700 dark:text-indigo-400">
+                      Mark all read
+                    </button>
+                  )}
+                  <button onClick={() => setShowNotifs(false)}
+                    className="text-gray-400 text-xs hover:text-gray-600">
+                    Close
+                  </button>
+                </div>
               </div>
               <ul className="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700">
-                {(!data || data.length === 0) && (
+                {notifications.length === 0 && (
                   <li className="px-4 py-8 text-center text-sm text-gray-400">All clear 🎉</li>
                 )}
-                {data?.map((n) => (
-                  <li key={n.id} className={`px-4 py-3 text-sm ${n.is_read ? "text-gray-400" : "text-gray-800 dark:text-white font-medium"}`}>
+                {notifications.map((n) => (
+                  <li key={n.id}
+                    className={`px-4 py-3 text-sm ${n.is_read ? "text-gray-400" : "text-gray-800 dark:text-white font-medium"}`}>
                     <span className="mr-2">
                       {n.type === "budget_exceeded" ? "🔴" : n.type === "budget_warning" ? "🟡" : "ℹ️"}
                     </span>

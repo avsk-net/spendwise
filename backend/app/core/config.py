@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
+    SMTP_USE_TLS: bool = True
 
     # Rate Limiting
     RATE_LIMIT_LOGIN: str = "5/minute"

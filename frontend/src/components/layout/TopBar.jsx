@@ -1,4 +1,4 @@
-import { Bell, Sun, Moon } from "lucide-react"
+import { Bell, Sun, Moon, Menu } from "lucide-react"
 import { useLocation } from "react-router-dom"
 import { useThemeStore } from "../../store/themeStore"
 import { useNotifStore } from "../../store/notifStore"
@@ -17,7 +17,7 @@ const TITLES = {
   "/settings":     "Settings",
 }
 
-export default function TopBar() {
+export default function TopBar({ onMenuClick }) {
   const { pathname } = useLocation()
   const { theme, toggleTheme } = useThemeStore()
   const { notifications, unreadCount, setNotifications, clearUnread } = useNotifStore()
@@ -42,12 +42,21 @@ export default function TopBar() {
   }
 
   return (
-    <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between px-6 shrink-0">
-      <h1 className="text-base font-semibold text-gray-800 dark:text-white">
-        {TITLES[pathname] || "Spendwise"}
-      </h1>
+    <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between px-4 shrink-0">
+      <div className="flex items-center gap-3 min-w-0">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors md:hidden shrink-0"
+          aria-label="Open menu">
+          <Menu size={20} />
+        </button>
+        <h1 className="text-base font-semibold text-gray-800 dark:text-white truncate">
+          {TITLES[pathname] || "Spendwise"}
+        </h1>
+      </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 shrink-0">
         <button onClick={toggleTheme}
           className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
@@ -55,7 +64,7 @@ export default function TopBar() {
 
         <div className="relative">
           <button onClick={() => setShowNotifs(!showNotifs)}
-            className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             <Bell size={18} />
             {unreadCount > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -65,7 +74,7 @@ export default function TopBar() {
           </button>
 
           {showNotifs && (
-            <div className="absolute right-0 top-10 w-80 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50">
+            <div className="absolute right-0 top-10 w-screen max-w-xs sm:w-80 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                 <span className="font-medium text-sm text-gray-800 dark:text-white">Notifications</span>
                 <div className="flex items-center gap-3">

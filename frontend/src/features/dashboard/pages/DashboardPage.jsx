@@ -77,7 +77,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard
           label="Total Balance" value={`${c} ${totalBalance.toLocaleString("en", {minimumFractionDigits:2})}`}
           icon={<Wallet size={20} />} color="bg-gradient-to-br from-blue-500 to-blue-600" />
@@ -209,12 +209,12 @@ export default function DashboardPage() {
 
 function StatCard({ label, value, icon, color }) {
   return (
-    <div className={`${color} rounded-2xl p-5 text-white shadow-lg`}>
-      <div className="flex justify-between items-start mb-3">
-        <p className="text-white/70 text-xs font-medium uppercase tracking-wide">{label}</p>
-        <div className="opacity-80">{icon}</div>
+    <div className={`${color} rounded-2xl p-4 md:p-5 text-white shadow-lg`}>
+      <div className="flex justify-between items-start mb-2 md:mb-3">
+        <p className="text-white/70 text-xs font-medium uppercase tracking-wide leading-tight">{label}</p>
+        <div className="opacity-80 shrink-0 ml-1">{icon}</div>
       </div>
-      <p className="text-xl font-bold leading-tight">{value}</p>
+      <p className="text-base md:text-xl font-bold leading-tight break-all">{value}</p>
     </div>
   )
 }

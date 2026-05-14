@@ -71,9 +71,9 @@ export default function BudgetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <select
-          className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="w-full sm:w-auto border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           value={selectedMonth}
           onChange={e => setSelectedMonth(e.target.value)}>
           {monthOptions.map(m => (
@@ -81,7 +81,7 @@ export default function BudgetsPage() {
           ))}
         </select>
         <button onClick={() => setModal(true)}
-          className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
           <Plus size={16} /> Set Budget
         </button>
       </div>

@@ -142,15 +142,13 @@ export default function RecurringPage() {
                     ? "border-gray-100 dark:border-gray-700"
                     : "border-gray-100 dark:border-gray-700 opacity-60"
                 }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
-                      r.is_active ? "bg-gray-100 dark:bg-gray-700" : "bg-gray-100 dark:bg-gray-700"
-                    }`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-gray-100 dark:bg-gray-700 shrink-0">
                       {cat.icon || "💸"}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                         <p className="text-sm font-medium text-gray-800 dark:text-white">{cat.name || "Unknown"}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${FREQ_COLORS[r.frequency]}`}>
                           {r.frequency}
@@ -161,19 +159,19 @@ export default function RecurringPage() {
                           {r.type}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <p className="text-xs text-gray-400">{acc.name || "Unknown account"}</p>
                         <div className="flex items-center gap-1 text-xs text-gray-400">
                           <Calendar size={11} />
                           Next: {r.next_run_date}
                         </div>
-                        {r.notes && <p className="text-xs text-gray-400 truncate max-w-32">{r.notes}</p>}
+                        {r.notes && <p className="text-xs text-gray-400 truncate max-w-[10rem]">{r.notes}</p>}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <p className={`text-base font-bold ${
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <p className={`text-sm font-bold whitespace-nowrap ${
                       r.type === "income" ? "text-green-600" : "text-red-500"
                     }`}>
                       {r.type === "income" ? "+" : "-"}{c} {parseFloat(r.amount).toFixed(2)}

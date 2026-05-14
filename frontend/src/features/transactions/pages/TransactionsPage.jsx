@@ -98,83 +98,125 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
-          <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <select className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             onChange={e => setFilters(f => ({ ...f, type: e.target.value || undefined, page: 1 }))}>
             <option value="">All types</option>
             <option value="income">Income</option>
             <option value="expense">Expense</option>
           </select>
-          <select className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          <select className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             onChange={e => setFilters(f => ({ ...f, account_id: e.target.value || undefined, page: 1 }))}>
             <option value="">All accounts</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
         <button onClick={openCreate}
-          className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
           <Plus size={16} /> Add Transaction
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : txns.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-sm">
-            No transactions yet. Add your first one.
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase">
-              <tr>
-                {["Date","Category","Account","Type","Amount","Notes",""].map(h => (
-                  <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
-              {txns.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{t.date}</td>
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-1.5">
-                      <span>{catMap[t.category_id]?.icon}</span>
-                      <span className="text-gray-700 dark:text-gray-200">{catMap[t.category_id]?.name || "—"}</span>
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{accMap[t.account_id]?.name || "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      t.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
-                    }`}>{t.type}</span>
-                  </td>
-                  <td className={`px-4 py-3 font-semibold ${t.type === "income" ? "text-green-600" : "text-red-500"}`}>
-                    {t.type === "income" ? "+" : "-"}{c} {parseFloat(t.amount).toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 max-w-32 truncate">{t.notes || "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button onClick={() => openEdit(t)}
-                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
-                        <Pencil size={14} />
-                      </button>
-                      <button onClick={() => { if (window.confirm("Delete this transaction?")) remove(t.id) }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 size={14} />
-                      </button>
+      {/* Loading / empty states */}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : txns.length === 0 ? (
+        <div className="text-center py-12 text-gray-400 text-sm">
+          No transactions yet. Add your first one.
+        </div>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-2">
+            {txns.map(t => (
+              <div key={t.id} className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xl shrink-0">{catMap[t.category_id]?.icon || "💸"}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+                        {catMap[t.category_id]?.name || "—"}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {t.date} · {accMap[t.account_id]?.name || "—"}
+                      </p>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className={`text-sm font-bold ${t.type === "income" ? "text-green-600" : "text-red-500"}`}>
+                      {t.type === "income" ? "+" : "-"}{c} {parseFloat(t.amount).toFixed(2)}
+                    </span>
+                    <button onClick={() => openEdit(t)}
+                      className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition-colors">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => { if (window.confirm("Delete this transaction?")) remove(t.id) }}
+                      className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                {t.notes && (
+                  <p className="text-xs text-gray-400 mt-2 ml-10 truncate">{t.notes}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase">
+                  <tr>
+                    {["Date","Category","Account","Type","Amount","Notes",""].map(h => (
+                      <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+                  {txns.map(t => (
+                    <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{t.date}</td>
+                      <td className="px-4 py-3">
+                        <span className="flex items-center gap-1.5">
+                          <span>{catMap[t.category_id]?.icon}</span>
+                          <span className="text-gray-700 dark:text-gray-200">{catMap[t.category_id]?.name || "—"}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{accMap[t.account_id]?.name || "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          t.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
+                        }`}>{t.type}</span>
+                      </td>
+                      <td className={`px-4 py-3 font-semibold whitespace-nowrap ${t.type === "income" ? "text-green-600" : "text-red-500"}`}>
+                        {t.type === "income" ? "+" : "-"}{c} {parseFloat(t.amount).toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 max-w-32 truncate">{t.notes || "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button onClick={() => openEdit(t)}
+                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => { if (window.confirm("Delete this transaction?")) remove(t.id) }}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Pagination */}
       <div className="flex justify-between items-center text-sm text-gray-500">

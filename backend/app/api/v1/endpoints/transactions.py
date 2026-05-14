@@ -1,7 +1,11 @@
+import csv
+import io
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +14,7 @@ from app.dependencies import get_current_user
 from app.enums.transaction_type import TransactionType
 from app.exceptions.business import AccountNotFoundError, TransactionNotFoundError
 from app.models.account import Account
+from app.models.category import Category
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.transaction import (
@@ -67,6 +72,65 @@ async def list_transactions(
     )
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.get("/export/csv")
+async def export_transactions_csv(
+    filters: TransactionFilters = Depends(),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    query = select(Transaction).where(
+        Transaction.user_id == user.id,
+        Transaction.deleted_at.is_(None),
+    )
+    if filters.account_id:
+        query = query.where(Transaction.account_id == filters.account_id)
+    if filters.category_id:
+        query = query.where(Transaction.category_id == filters.category_id)
+    if filters.type:
+        query = query.where(Transaction.type == filters.type)
+    if filters.date_from:
+        query = query.where(Transaction.date >= filters.date_from)
+    if filters.date_to:
+        query = query.where(Transaction.date <= filters.date_to)
+    if filters.tag:
+        query = query.where(Transaction.tags.contains([filters.tag]))
+    query = query.order_by(Transaction.date.desc())
+
+    txns = (await db.execute(query)).scalars().all()
+
+    cats = (await db.execute(
+        select(Category).where(Category.user_id == user.id, Category.deleted_at.is_(None))
+    )).scalars().all()
+    accs = (await db.execute(
+        select(Account).where(Account.user_id == user.id)
+    )).scalars().all()
+    cat_map = {c.id: c for c in cats}
+    acc_map = {a.id: a for a in accs}
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Type", "Category", "Account", "Amount", "Notes", "Tags"])
+    for t in txns:
+        cat = cat_map.get(t.category_id)
+        acc = acc_map.get(t.account_id)
+        writer.writerow([
+            t.date,
+            t.type.value,
+            f"{cat.icon} {cat.name}" if cat else "",
+            acc.name if acc else "",
+            str(t.amount),
+            t.notes or "",
+            ", ".join(t.tags or []),
+        ])
+
+    filename = f"transactions_{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)

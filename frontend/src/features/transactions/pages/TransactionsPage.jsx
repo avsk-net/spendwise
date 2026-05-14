@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Download, Bookmark, X } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { transactionsApi } from "../api/transactionsApi"
 import toast from "react-hot-toast"
@@ -11,13 +11,19 @@ const EMPTY_FORM = {
   notes: "", tags: "",
 }
 
+const PRESETS_KEY = "sw_filter_presets"
+const loadPresets = () => { try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]") } catch { return [] } }
+
 export default function TransactionsPage() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
   const c = user?.currency || ""
+
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filters, setFilters] = useState({ page: 1, limit: 20 })
+  const [presets, setPresets] = useState(loadPresets)
+  const [exporting, setExporting] = useState(false)
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -34,12 +40,50 @@ export default function TransactionsPage() {
     queryFn: () => transactionsApi.categories().then(r => r.data),
   })
 
-  const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
+  const catMap = Object.fromEntries(categories.map(cat => [cat.id, cat]))
   const accMap = Object.fromEntries(accounts.map(a => [a.id, a]))
+  const filteredCats = categories.filter(cat => cat.type === "both" || cat.type === form.type)
 
-  const filteredCats = categories.filter(c =>
-    c.type === "both" || c.type === form.type
-  )
+  const hasFilters = filters.type || filters.account_id || filters.category_id || filters.date_from || filters.date_to
+  const clearFilters = () => setFilters({ page: 1, limit: 20 })
+
+  const savePreset = () => {
+    const name = window.prompt("Name this filter view:")
+    if (!name?.trim()) return
+    const updated = [...presets.filter(p => p.name !== name.trim()), { name: name.trim(), filters }]
+    setPresets(updated)
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(updated))
+    toast.success(`Saved "${name.trim()}"`)
+  }
+
+  const deletePreset = (name) => {
+    const updated = presets.filter(p => p.name !== name)
+    setPresets(updated)
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(updated))
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const exportFilters = Object.fromEntries(
+        Object.entries(filters).filter(([k]) => k !== "page" && k !== "limit")
+      )
+      const res = await transactionsApi.exportCsv(exportFilters)
+      const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv" }))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `transactions_${new Date().toISOString().split("T")[0]}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success("Exported successfully")
+    } catch {
+      toast.error("Export failed")
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const { mutate: create, isPending: creating } = useMutation({
     mutationFn: (data) => transactionsApi.create(data),
@@ -95,37 +139,102 @@ export default function TransactionsPage() {
     else update({ id: modal, data })
   }
 
+  const selectCls = "border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+  const inputCls = "border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div className="flex gap-2 w-full sm:w-auto">
-          <select className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            onChange={e => setFilters(f => ({ ...f, type: e.target.value || undefined, page: 1 }))}>
-            <option value="">All types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-          </select>
-          <select className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            onChange={e => setFilters(f => ({ ...f, account_id: e.target.value || undefined, page: 1 }))}>
-            <option value="">All accounts</option>
-            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+    <div className="space-y-3">
+
+      {/* Filter + action bar */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-3 space-y-2">
+        {/* Row 1: dropdowns + export + add */}
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex flex-wrap gap-2">
+            <select className={selectCls}
+              value={filters.type || ""}
+              onChange={e => setFilters(f => ({ ...f, type: e.target.value || undefined, page: 1 }))}>
+              <option value="">All types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+            </select>
+            <select className={selectCls}
+              value={filters.account_id || ""}
+              onChange={e => setFilters(f => ({ ...f, account_id: e.target.value || undefined, page: 1 }))}>
+              <option value="">All accounts</option>
+              {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <select className={selectCls}
+              value={filters.category_id || ""}
+              onChange={e => setFilters(f => ({ ...f, category_id: e.target.value || undefined, page: 1 }))}>
+              <option value="">All categories</option>
+              {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleExport} disabled={exporting}
+              className="flex items-center gap-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium px-3 py-2 rounded-xl disabled:opacity-60 transition-colors">
+              <Download size={14} />
+              <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export CSV"}</span>
+            </button>
+            <button onClick={openCreate}
+              className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-3 py-2 rounded-xl transition-colors">
+              <Plus size={15} />
+              <span className="hidden sm:inline">Add</span>
+            </button>
+          </div>
         </div>
-        <button onClick={openCreate}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-          <Plus size={16} /> Add Transaction
-        </button>
+
+        {/* Row 2: date range + save/clear */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <input type="date" className={inputCls}
+            value={filters.date_from || ""}
+            onChange={e => setFilters(f => ({ ...f, date_from: e.target.value || undefined, page: 1 }))} />
+          <span className="text-gray-400 text-xs">to</span>
+          <input type="date" className={inputCls}
+            value={filters.date_to || ""}
+            onChange={e => setFilters(f => ({ ...f, date_to: e.target.value || undefined, page: 1 }))} />
+          {hasFilters && (
+            <>
+              <button onClick={savePreset}
+                className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 border border-primary-200 rounded-lg px-2.5 py-1.5 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                <Bookmark size={12} /> Save view
+              </button>
+              <button onClick={clearFilters}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-gray-50 transition-colors">
+                <X size={12} /> Clear
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Saved presets */}
+        {presets.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-xs text-gray-400 self-center">Saved:</span>
+            {presets.map(p => (
+              <div key={p.name} className="flex items-center gap-0.5">
+                <button onClick={() => setFilters({ ...p.filters, page: 1 })}
+                  className="text-xs px-2.5 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-primary-100 dark:hover:bg-primary-900/30 text-gray-600 dark:text-gray-300 hover:text-primary-700 rounded-lg transition-colors">
+                  {p.name}
+                </button>
+                <button onClick={() => deletePreset(p.name)} title="Delete preset"
+                  className="text-gray-300 hover:text-red-400 p-0.5 rounded transition-colors">
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Loading / empty states */}
+      {/* Loading / empty */}
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : txns.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">
-          No transactions yet. Add your first one.
+          No transactions match the current filters.
         </div>
       ) : (
         <>
@@ -159,9 +268,7 @@ export default function TransactionsPage() {
                     </button>
                   </div>
                 </div>
-                {t.notes && (
-                  <p className="text-xs text-gray-400 mt-2 ml-10 truncate">{t.notes}</p>
-                )}
+                {t.notes && <p className="text-xs text-gray-400 mt-2 ml-10 truncate">{t.notes}</p>}
               </div>
             ))}
           </div>
@@ -220,7 +327,7 @@ export default function TransactionsPage() {
 
       {/* Pagination */}
       <div className="flex justify-between items-center text-sm text-gray-500">
-        <span>{txns.length} transactions</span>
+        <span>{txns.length} shown</span>
         <div className="flex gap-2">
           <button disabled={filters.page === 1}
             onClick={() => setFilters(f => ({ ...f, page: f.page - 1 }))}
@@ -235,10 +342,10 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Create / Edit modal */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="font-semibold text-gray-800 dark:text-white">
                 {modal === "create" ? "Add Transaction" : "Edit Transaction"}
@@ -246,7 +353,6 @@ export default function TransactionsPage() {
               <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-4 space-y-3">
-              {/* Type toggle */}
               <div className="flex gap-2">
                 {["income","expense"].map(type => (
                   <button key={type} type="button"
@@ -260,39 +366,32 @@ export default function TransactionsPage() {
                   </button>
                 ))}
               </div>
-
               <input type="number" step="0.01" placeholder="Amount" required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
-
               <select required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.account_id} onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}>
                 <option value="">Select account</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
-
               <select required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}>
                 <option value="">Select category</option>
-                {filteredCats.map(c => (
-                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                {filteredCats.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
                 ))}
               </select>
-
               <input type="date" required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
-
               <input type="text" placeholder="Notes (optional)"
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-
               <input type="text" placeholder="Tags: food, travel (comma separated)"
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} />
-
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setModal(null)}
                   className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">

@@ -53,7 +53,10 @@ export default function LoginPage() {
             {isSubmitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm mt-3">
+          <Link to="/forgot-password" className="text-gray-400 hover:text-primary-600 text-xs">Forgot password?</Link>
+        </p>
+        <p className="text-center text-sm text-gray-500 mt-4">
           No account? <Link to="/register" className="text-primary-600 font-medium hover:underline">Register</Link>
         </p>
       </div>

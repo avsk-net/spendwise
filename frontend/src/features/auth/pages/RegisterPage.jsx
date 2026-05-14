@@ -67,7 +67,10 @@ export default function RegisterPage() {
             {isSubmitting ? "Creating…" : "Create account"}
           </button>
         </form>
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-xs text-gray-400 mt-4">
+          We'll send a verification email after you sign up.
+        </p>
+        <p className="text-center text-sm text-gray-500 mt-3">
           Already have an account? <Link to="/login" className="text-primary-600 font-medium hover:underline">Sign in</Link>
         </p>
       </div>

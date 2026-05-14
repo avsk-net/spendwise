@@ -1,10 +1,11 @@
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { User, Lock, Bell, Trash2, CheckCircle } from "lucide-react"
+import { User, Lock, Bell, Trash2, CheckCircle, Mail, ShieldCheck, ShieldAlert } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
 import apiClient from "../../../lib/axios"
+import { authApi } from "../../auth/api/authApi"
 
 export default function SettingsPage() {
   const { user, setUser, logout } = useAuthStore()
@@ -40,6 +41,12 @@ export default function SettingsPage() {
       toast.success("Password changed")
     },
     onError: (e) => toast.error(e.response?.data?.message || "Failed"),
+  })
+
+  const { mutate: resendVerification, isPending: resending } = useMutation({
+    mutationFn: () => authApi.resendVerification(),
+    onSuccess: () => toast.success("Verification email sent — check your inbox"),
+    onError: (e) => toast.error(e.response?.data?.message || "Failed to send email"),
   })
 
   const { mutate: deleteAccount, isPending: deleting } = useMutation({
@@ -101,6 +108,32 @@ export default function SettingsPage() {
                 <span className="ml-2 text-gray-400">Currency cannot be changed after signup</span>
               </p>
             </div>
+          </div>
+
+          {/* Email verification status */}
+          <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+            user?.is_email_verified
+              ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+              : "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+          }`}>
+            <div className="flex items-center gap-2">
+              {user?.is_email_verified
+                ? <ShieldCheck size={16} className="text-green-600" />
+                : <ShieldAlert size={16} className="text-amber-600" />}
+              <span className={`text-sm font-medium ${user?.is_email_verified ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"}`}>
+                {user?.is_email_verified ? "Email verified" : "Email not verified"}
+              </span>
+            </div>
+            {!user?.is_email_verified && (
+              <button
+                onClick={() => resendVerification()}
+                disabled={resending}
+                className="flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline disabled:opacity-60"
+              >
+                <Mail size={13} />
+                {resending ? "Sending…" : "Resend email"}
+              </button>
+            )}
           </div>
 
           <div>

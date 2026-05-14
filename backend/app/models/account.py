@@ -29,4 +29,6 @@ class Account(Base, TimestampMixin, SoftDeleteMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
 
     user: Mapped["User"] = relationship(back_populates="accounts")
-    transactions: Mapped[list["Transaction"]] = relationship(back_populates="account")
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="account", foreign_keys="[Transaction.account_id]"
+    )

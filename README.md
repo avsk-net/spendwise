@@ -9,14 +9,18 @@ A self-hosted personal finance tracker. Track spending, set budgets, manage mult
 ## Features
 
 - **Dashboard** — spending summary, budget progress, recent transactions
-- **Transactions** — log income and expenses, filter by account, category, or date range
-- **Accounts** — manage multiple bank accounts or wallets with running balances
-- **Budgets** — set monthly limits per category, track remaining budget live
-- **Saving Goals** — define targets with optional deadlines, contribute funds, track progress
-- **Recurring Rules** — define daily/weekly/monthly/yearly transactions that auto-post via a scheduled job
-- **Reports** — spending breakdown by category, daily and monthly charts, trend view
+- **Transactions** — five types: Income, Expense, Transfer, Refund, Adjustment; filter, export CSV, save filter presets, apply templates
+- **Accounts** — multiple bank accounts or wallets with live running balances; transfers update both accounts atomically
+- **Categories** — custom categories and subcategories with icons and colours; auto-categorisation rules (keyword → category)
+- **Budgets** — monthly limits per category with live progress and over-budget push notifications
+- **Debt Tracker** — track money borrowed and lent; payment history with progress bars; auto-mark paid; overdue highlighting
+- **Saving Goals** — targets with optional deadlines, contributions, live progress bars
+- **Recurring Rules** — daily/weekly/monthly/yearly rules that auto-post via Celery; configurable end dates
+- **Reports** — category pie chart, monthly income vs expense bar chart with net savings line, 6-month income/expense trend, daily breakdown
 - **Notifications** — in-app alerts for budget overruns and reached goals, delivered over WebSocket
-- **Settings** — update profile, change password, set preferred currency
+- **Email flows** — email verification on sign-up, forgot-password / reset-password with expiring links
+- **PWA** — installable on iOS and Android; offline shell via service worker
+- **Settings** — profile, password, currency, email preferences
 
 ---
 
@@ -199,14 +203,17 @@ Interactive docs are available at `/api/docs` (Swagger UI) and `/api/redoc` when
 
 | Group | Endpoints |
 |---|---|
-| Auth | `POST /register` `POST /login` `POST /refresh` `POST /logout` |
+| Auth | `POST /register` `/login` `/refresh` `/logout` `/verify-email` `/resend-verification` `/forgot-password` `/reset-password` |
 | Users | `GET /me` `PATCH /me` `PATCH /me/password` `DELETE /me` |
 | Accounts | CRUD at `/accounts` |
-| Transactions | CRUD at `/transactions` |
+| Transactions | CRUD + `GET /export/csv` at `/transactions` |
 | Categories | CRUD at `/categories` |
+| Categorisation Rules | CRUD + `POST /suggest` at `/categorization-rules` |
+| Templates | CRUD at `/templates` |
 | Budgets | CRUD at `/budgets` |
 | Recurring | CRUD at `/recurring` |
 | Saving Goals | CRUD + `POST /{id}/contribute` at `/saving-goals` |
+| Debts | CRUD + `POST /{id}/payments` + `DELETE /{id}/payments/{pid}` at `/debts` |
 | Reports | `GET /reports/summary` `/by-category` `/daily` `/monthly` `/trend` |
 | Notifications | `GET /notifications` `PATCH /{id}/read` `PATCH /read-all` |
 | WebSocket | `WS /ws?token=<access_token>` |
@@ -304,24 +311,26 @@ The `.env` file lives in the repo root (next to `docker-compose.yml`). Start fro
 cp backend/.env.example .env
 ```
 
-Open `.env` and fill in every value. The fields you **must** change:
+Open `.env` and replace every value marked `[REQUIRED]`:
 
 ```bash
-# Generate a strong database password
-POSTGRES_PASSWORD=<strong-random-password>
+# 1. Choose a strong database password (same value in both places)
+POSTGRES_PASSWORD=your_strong_password
+DATABASE_URL=postgresql+asyncpg://spendwise:your_strong_password@postgres:5432/spendwise
 
-# Generate a 64-character secret key for JWT signing
-# Linux/macOS: openssl rand -hex 32
-SECRET_KEY=<output-of-openssl-rand-hex-32>
+# 2. Generate a 64-char JWT secret
+#    Run: openssl rand -hex 32
+SECRET_KEY=paste_output_here
 
-# Update the DATABASE_URL password to match POSTGRES_PASSWORD
-DATABASE_URL=postgresql+asyncpg://spendwise:<your-password>@postgres:5432/spendwise
-
-# Set this to your actual domain
+# 3. Set your domain in three places
+APP_BASE_URL=https://finance.example.com
 CORS_ORIGINS=["https://finance.example.com"]
+SMTP_FROM=noreply@finance.example.com
 
-# Leave this as-is (used for Docker image tags when building locally)
-GITHUB_REPO=avsk-net/spendwise
+# 4. Fill in your SMTP credentials (needed for email verification / password reset)
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_USER=your_smtp_user
+SMTP_PASSWORD=your_smtp_password
 ```
 
 ---

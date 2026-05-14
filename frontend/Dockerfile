@@ -7,6 +7,8 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# Bust layer cache when needed
+ARG CACHEBUST=1
 RUN npm run build
 
 # ── Stage 2: serve ─────────────────────────────────────────────────────────────

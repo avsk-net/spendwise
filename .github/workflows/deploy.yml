@@ -43,6 +43,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: ghcr.io/${{ github.repository }}/spendwise-frontend:latest
+          build-args: |
+            CACHEBUST=${{ github.sha }}
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1

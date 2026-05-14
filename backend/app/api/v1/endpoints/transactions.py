@@ -100,12 +100,16 @@ async def export_transactions_csv(
 
     txns = (await db.execute(query)).scalars().all()
 
-    cats = (await db.execute(
-        select(Category).where(Category.user_id == user.id, Category.deleted_at.is_(None))
-    )).scalars().all()
-    accs = (await db.execute(
-        select(Account).where(Account.user_id == user.id)
-    )).scalars().all()
+    cats = (
+        (
+            await db.execute(
+                select(Category).where(Category.user_id == user.id, Category.deleted_at.is_(None))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    accs = (await db.execute(select(Account).where(Account.user_id == user.id))).scalars().all()
     cat_map = {c.id: c for c in cats}
     acc_map = {a.id: a for a in accs}
 
@@ -115,15 +119,17 @@ async def export_transactions_csv(
     for t in txns:
         cat = cat_map.get(t.category_id)
         acc = acc_map.get(t.account_id)
-        writer.writerow([
-            t.date,
-            t.type.value,
-            f"{cat.icon} {cat.name}" if cat else "",
-            acc.name if acc else "",
-            str(t.amount),
-            t.notes or "",
-            ", ".join(t.tags or []),
-        ])
+        writer.writerow(
+            [
+                t.date,
+                t.type.value,
+                f"{cat.icon} {cat.name}" if cat else "",
+                acc.name if acc else "",
+                str(t.amount),
+                t.notes or "",
+                ", ".join(t.tags or []),
+            ]
+        )
 
     filename = f"transactions_{datetime.utcnow().strftime('%Y-%m-%d')}.csv"
     return StreamingResponse(

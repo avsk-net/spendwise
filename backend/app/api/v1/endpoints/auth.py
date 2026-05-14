@@ -39,8 +39,8 @@ from app.services.seed import seed_categories_for_user
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-_VERIFICATION_EXPIRY_MINUTES = 60 * 24   # 24 hours
-_RESET_EXPIRY_MINUTES = 60               # 1 hour
+_VERIFICATION_EXPIRY_MINUTES = 60 * 24  # 24 hours
+_RESET_EXPIRY_MINUTES = 60  # 1 hour
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -50,6 +50,7 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
 
     if await user_repo.email_or_username_exists(data.email, data.username):
         from app.core.exceptions import ValidationError
+
         raise ValidationError("Email or username already taken", "DUPLICATE_USER")
 
     user = User(
@@ -73,11 +74,13 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
         user.id, "email_verification", _VERIFICATION_EXPIRY_MINUTES
     )
 
-    db.add(AuditLog(
-        user_id=user.id,
-        action=AuditAction.REGISTER,
-        ip_address=request.client.host if request.client else None,
-    ))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.REGISTER,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()
 
     send_verification_email(user.email, user.username, raw_verify, settings.APP_BASE_URL)
@@ -92,11 +95,13 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     user = await user_repo.get_by_email(data.email)
 
     if not user or not verify_password(data.password, user.hashed_password):
-        db.add(AuditLog(
-            action=AuditAction.LOGIN_FAILED,
-            ip_address=request.client.host if request.client else None,
-            new_value={"email": data.email},
-        ))
+        db.add(
+            AuditLog(
+                action=AuditAction.LOGIN_FAILED,
+                ip_address=request.client.host if request.client else None,
+                new_value={"email": data.email},
+            )
+        )
         await db.commit()
         raise InvalidCredentialsError()
 
@@ -104,11 +109,13 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     await RefreshTokenRepository(db).save(
         RefreshToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
     )
-    db.add(AuditLog(
-        user_id=user.id,
-        action=AuditAction.LOGIN,
-        ip_address=request.client.host if request.client else None,
-    ))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.LOGIN,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()
 
     return TokenResponse(access_token=create_access_token(str(user.id)), refresh_token=raw_refresh)
@@ -130,11 +137,13 @@ async def logout(
     user: User = Depends(get_current_user),
 ):
     await RefreshTokenRepository(db).revoke(data.refresh_token, user.id)
-    db.add(AuditLog(
-        user_id=user.id,
-        action=AuditAction.LOGOUT,
-        ip_address=request.client.host if request.client else None,
-    ))
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.LOGOUT,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
     await db.commit()
 
 
@@ -208,6 +217,7 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
         raise InvalidTokenError("Reset link is invalid or has expired")
 
     from sqlalchemy import select as _select
+
     result = await db.execute(_select(User).where(User.id == stored.user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -219,4 +229,6 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
     await RefreshTokenRepository(db).revoke_all_for_user(user.id)
     await db.commit()
 
-    return MessageResponse(message="Password reset successfully. Please log in with your new password.")
+    return MessageResponse(
+        message="Password reset successfully. Please log in with your new password."
+    )

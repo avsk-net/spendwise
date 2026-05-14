@@ -18,7 +18,9 @@ class EmailToken(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
-    purpose: Mapped[str] = mapped_column(String(30), nullable=False)  # email_verification | password_reset
+    purpose: Mapped[str] = mapped_column(
+        String(30), nullable=False
+    )  # email_verification | password_reset
     expires_at: Mapped[datetime.datetime] = mapped_column(nullable=False)
     used_at: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(

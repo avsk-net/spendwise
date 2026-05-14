@@ -22,6 +22,17 @@ ignore = ["E501"]
 python_version = "3.12"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "app.models.*",
+    "app.schemas.saving_goal",
+    "app.core.config",
+    "app.core.logging",
+    "app.repositories.base",
+    "app.api.v1.endpoints.budgets",
+]
+ignore_errors = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

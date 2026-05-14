@@ -27,7 +27,19 @@ class Category(Base, TimestampMixin, SoftDeleteMixin):
         SAEnum(CategoryType, name="categorytype"), nullable=False
     )
     is_system: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
+    )
+    color: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="categories")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="category")
     budgets: Mapped[list["Budget"]] = relationship(back_populates="category")
+    subcategories: Mapped[list["Category"]] = relationship(
+        foreign_keys="[Category.parent_id]", back_populates="parent"
+    )
+    parent: Mapped[Optional["Category"]] = relationship(
+        foreign_keys="[Category.parent_id]",
+        back_populates="subcategories",
+        remote_side="Category.id",
+    )

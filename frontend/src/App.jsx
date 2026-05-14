@@ -17,6 +17,8 @@ const ReportsPage      = lazy(() => import("./features/reports/pages/ReportsPage
 const RecurringPage    = lazy(() => import("./features/recurring/pages/RecurringPage"))
 const SettingsPage     = lazy(() => import("./features/settings/pages/SettingsPage"))
 const SavingGoalsPage  = lazy(() => import("./features/saving-goals/pages/SavingGoalsPage"))
+const DebtPage         = lazy(() => import("./features/debts/pages/DebtPage"))
+const CategoriesPage   = lazy(() => import("./features/categories/pages/CategoriesPage"))
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
@@ -54,6 +56,8 @@ export default function App() {
             <Route path="/reports" element={<Suspense fallback={<Spinner />}><ReportsPage /></Suspense>} />
             <Route path="/recurring" element={<Suspense fallback={<Spinner />}><RecurringPage /></Suspense>} />
             <Route path="/saving-goals" element={<Suspense fallback={<Spinner />}><SavingGoalsPage /></Suspense>} />
+            <Route path="/categories" element={<Suspense fallback={<Spinner />}><CategoriesPage /></Suspense>} />
+            <Route path="/debts"      element={<Suspense fallback={<Spinner />}><DebtPage /></Suspense>} />
             <Route path="/settings" element={<Suspense fallback={<Spinner />}><SettingsPage /></Suspense>} />
           </Route>
         </Routes>

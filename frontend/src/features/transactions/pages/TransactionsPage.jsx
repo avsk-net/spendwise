@@ -7,7 +7,7 @@ import { templatesApi } from "../api/templatesApi"
 import toast from "react-hot-toast"
 
 const EMPTY_FORM = {
-  type: "expense", account_id: "", category_id: "",
+  type: "expense", account_id: "", category_id: "", to_account_id: "",
   amount: "", date: new Date().toISOString().split("T")[0],
   notes: "", tags: "",
 }
@@ -162,7 +162,8 @@ export default function TransactionsPage() {
   const openCreate = () => { setForm(EMPTY_FORM); setModal("create") }
   const openEdit = (t) => {
     setForm({
-      type: t.type, account_id: t.account_id, category_id: t.category_id,
+      type: t.type, account_id: t.account_id, category_id: t.category_id || "",
+      to_account_id: t.to_account_id || "",
       amount: t.amount, date: t.date, notes: t.notes || "",
       tags: (t.tags || []).join(", "),
     })
@@ -175,6 +176,8 @@ export default function TransactionsPage() {
       ...form,
       amount: parseFloat(form.amount),
       tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+      category_id: form.type === "transfer" ? undefined : form.category_id || undefined,
+      to_account_id: form.type === "transfer" ? (form.to_account_id || undefined) : undefined,
     }
     if (modal === "create") create(data)
     else update({ id: modal, data })
@@ -197,6 +200,9 @@ export default function TransactionsPage() {
               <option value="">All types</option>
               <option value="income">Income</option>
               <option value="expense">Expense</option>
+              <option value="transfer">Transfer</option>
+              <option value="refund">Refund</option>
+              <option value="adjustment">Adjustment</option>
             </select>
             <select className={selectCls}
               value={filters.account_id || ""}
@@ -296,8 +302,14 @@ export default function TransactionsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <span className={`text-sm font-bold ${t.type === "income" ? "text-green-600" : "text-red-500"}`}>
-                      {t.type === "income" ? "+" : "-"}{c} {parseFloat(t.amount).toFixed(2)}
+                    <span className={`text-sm font-bold ${
+                      t.type === "income" || t.type === "refund" ? "text-green-600"
+                      : t.type === "transfer" ? "text-blue-500"
+                      : t.type === "adjustment" ? "text-purple-500"
+                      : "text-red-500"
+                    }`}>
+                      {t.type === "income" || t.type === "refund" ? "+" : t.type === "transfer" || t.type === "adjustment" ? "" : "-"}
+                      {c} {parseFloat(t.amount).toFixed(2)}
                     </span>
                     <button onClick={() => openEdit(t)}
                       className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition-colors">
@@ -338,11 +350,21 @@ export default function TransactionsPage() {
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{accMap[t.account_id]?.name || "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          t.type === "income" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
+                          t.type === "income"     ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                          : t.type === "expense"  ? "bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                          : t.type === "transfer" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                          : t.type === "refund"   ? "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
+                          : "bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
                         }`}>{t.type}</span>
                       </td>
-                      <td className={`px-4 py-3 font-semibold whitespace-nowrap ${t.type === "income" ? "text-green-600" : "text-red-500"}`}>
-                        {t.type === "income" ? "+" : "-"}{c} {parseFloat(t.amount).toFixed(2)}
+                      <td className={`px-4 py-3 font-semibold whitespace-nowrap ${
+                        t.type === "income" || t.type === "refund" ? "text-green-600"
+                        : t.type === "transfer" ? "text-blue-500"
+                        : t.type === "adjustment" ? "text-purple-500"
+                        : "text-red-500"
+                      }`}>
+                        {t.type === "income" || t.type === "refund" ? "+" : t.type === "transfer" || t.type === "adjustment" ? "" : "-"}
+                        {c} {parseFloat(t.amount).toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-gray-400 max-w-32 truncate">{t.notes || "—"}</td>
                       <td className="px-4 py-3">
@@ -405,36 +427,64 @@ export default function TransactionsPage() {
                   ))}
                 </select>
               )}
-              <div className="flex gap-2">
-                {["income","expense"].map(type => (
-                  <button key={type} type="button"
-                    onClick={() => setForm(f => ({ ...f, type }))}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                      form.type === type
-                        ? type === "income" ? "bg-green-500 text-white border-green-500" : "bg-red-500 text-white border-red-500"
+              <div className="flex gap-1 overflow-x-auto pb-0.5">
+                {[
+                  { key: "income",     color: "bg-green-500 border-green-500" },
+                  { key: "expense",    color: "bg-red-500 border-red-500" },
+                  { key: "transfer",   color: "bg-blue-500 border-blue-500" },
+                  { key: "refund",     color: "bg-orange-500 border-orange-500" },
+                  { key: "adjustment", color: "bg-purple-500 border-purple-500" },
+                ].map(({ key, color }) => (
+                  <button key={key} type="button"
+                    onClick={() => setForm(f => ({ ...f, type: key }))}
+                    className={`shrink-0 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
+                      form.type === key
+                        ? `${color} text-white`
                         : "border-gray-200 text-gray-500 hover:border-gray-300"
                     }`}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                    {key.charAt(0).toUpperCase() + key.slice(1)}
                   </button>
                 ))}
               </div>
-              <input type="number" step="0.01" placeholder="Amount" required
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  {form.type === "adjustment" ? "Amount (negative to reduce)" : "Amount"}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Amount"
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.amount}
+                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                />
+              </div>
               <select required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.account_id} onChange={e => setForm(f => ({ ...f, account_id: e.target.value }))}>
                 <option value="">Select account</option>
                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
-              <select required
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}>
-                <option value="">Select category</option>
-                {filteredCats.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-                ))}
-              </select>
+              {form.type === "transfer" && (
+                <select required
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.to_account_id || ""}
+                  onChange={e => setForm(f => ({ ...f, to_account_id: e.target.value }))}>
+                  <option value="">Select destination account</option>
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              )}
+              {form.type !== "transfer" && (
+                <select required
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={form.category_id} onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}>
+                  <option value="">Select category</option>
+                  {filteredCats.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                  ))}
+                </select>
+              )}
               <input type="date" required
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />

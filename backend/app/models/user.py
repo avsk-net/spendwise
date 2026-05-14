@@ -58,6 +58,10 @@ class User(Base):
     templates: Mapped[list["TransactionTemplate"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    debts: Mapped[list["Debt"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    categorization_rules: Mapped[list["CategorizationRule"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class RefreshToken(Base):

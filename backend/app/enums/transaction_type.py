@@ -5,3 +5,5 @@ class TransactionType(str, enum.Enum):
     income = "income"
     expense = "expense"
     transfer = "transfer"
+    refund = "refund"
+    adjustment = "adjustment"

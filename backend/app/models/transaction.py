@@ -26,8 +26,8 @@ class Transaction(Base, TimestampMixin, SoftDeleteMixin):
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
-    category_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False
+    category_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=True
     )
     type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, name="transactiontype"), nullable=False
@@ -39,8 +39,19 @@ class Transaction(Base, TimestampMixin, SoftDeleteMixin):
     recurring_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("recurring_rules.id", ondelete="SET NULL"), nullable=True
     )
+    to_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    linked_transaction_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
 
     user: Mapped["User"] = relationship(back_populates="transactions")
-    account: Mapped["Account"] = relationship(back_populates="transactions")
+    account: Mapped["Account"] = relationship(
+        back_populates="transactions", foreign_keys="[Transaction.account_id]"
+    )
+    to_account: Mapped[Optional["Account"]] = relationship(
+        foreign_keys="[Transaction.to_account_id]"
+    )
     category: Mapped["Category"] = relationship(back_populates="transactions")
     recurring_rule: Mapped[Optional["RecurringRule"]] = relationship(back_populates="transactions")

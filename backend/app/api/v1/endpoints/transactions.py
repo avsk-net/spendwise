@@ -28,9 +28,13 @@ from app.services.ws_manager import manager
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
+_CREDIT_TYPES = frozenset(
+    {TransactionType.income, TransactionType.refund, TransactionType.adjustment}
+)
+
 
 def _delta(txn_type: TransactionType, amount: Decimal) -> Decimal:
-    return amount if txn_type == TransactionType.income else -amount
+    return amount if txn_type in _CREDIT_TYPES else -amount
 
 
 async def _get_account(account_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> Account:
@@ -117,7 +121,7 @@ async def export_transactions_csv(
     writer = csv.writer(output)
     writer.writerow(["Date", "Type", "Category", "Account", "Amount", "Notes", "Tags"])
     for t in txns:
-        cat = cat_map.get(t.category_id)
+        cat = cat_map.get(t.category_id) if t.category_id else None
         acc = acc_map.get(t.account_id)
         writer.writerow(
             [
@@ -150,8 +154,12 @@ async def create_transaction(
     db.add(txn)
     account.balance += _delta(data.type, data.amount)
 
+    if data.type == TransactionType.transfer and data.to_account_id:
+        to_account = await _get_account(data.to_account_id, user.id, db)
+        to_account.balance += data.amount
+
     notif_payload = None
-    if data.type == TransactionType.expense:
+    if data.type == TransactionType.expense and data.category_id:
         notif_payload = await check_budget(user.id, data.category_id, data.date, db)
 
     await db.commit()
@@ -201,14 +209,25 @@ async def update_transaction(
         raise TransactionNotFoundError()
 
     account = await _get_account(txn.account_id, user.id, db)
+
+    # Reverse old transfer effect on to_account
+    if txn.type == TransactionType.transfer and txn.to_account_id:
+        old_to_account = await _get_account(txn.to_account_id, user.id, db)
+        old_to_account.balance -= txn.amount
+
     account.balance -= _delta(txn.type, txn.amount)
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(txn, field, value)
     account.balance += _delta(txn.type, txn.amount)
 
+    # Apply new transfer effect on to_account
+    if txn.type == TransactionType.transfer and txn.to_account_id:
+        new_to_account = await _get_account(txn.to_account_id, user.id, db)
+        new_to_account.balance += txn.amount
+
     notif_payload = None
     amount_or_category_changed = data.amount is not None or data.category_id is not None
-    if txn.type == TransactionType.expense and amount_or_category_changed:
+    if txn.type == TransactionType.expense and amount_or_category_changed and txn.category_id:
         notif_payload = await check_budget(user.id, txn.category_id, txn.date, db)
 
     await db.commit()
@@ -239,5 +258,11 @@ async def delete_transaction(
 
     account = await _get_account(txn.account_id, user.id, db)
     account.balance -= _delta(txn.type, txn.amount)
+
+    # Reverse transfer effect
+    if txn.type == TransactionType.transfer and txn.to_account_id:
+        to_account = await _get_account(txn.to_account_id, user.id, db)
+        to_account.balance -= txn.amount
+
     txn.deleted_at = __import__("datetime").datetime.utcnow()
     await db.commit()

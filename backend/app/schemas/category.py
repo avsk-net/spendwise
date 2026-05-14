@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -9,12 +10,16 @@ class CategoryCreate(BaseModel):
     name: str
     icon: str | None = None
     type: CategoryType = CategoryType.both
+    parent_id: Optional[uuid.UUID] = None
+    color: Optional[str] = None
 
 
 class CategoryUpdate(BaseModel):
     name: str | None = None
     icon: str | None = None
     type: CategoryType | None = None
+    parent_id: Optional[uuid.UUID] = None
+    color: Optional[str] = None
 
 
 class CategoryResponse(BaseModel):
@@ -23,4 +28,6 @@ class CategoryResponse(BaseModel):
     icon: str | None
     type: CategoryType
     is_system: bool
+    parent_id: Optional[uuid.UUID]
+    color: Optional[str]
     model_config = {"from_attributes": True}

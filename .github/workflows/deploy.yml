@@ -52,7 +52,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd /opt/spendwise
+            cd /home/deploy/spendwise
             docker compose pull
             docker compose up -d --remove-orphans
             docker compose ps

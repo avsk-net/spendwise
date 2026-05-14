@@ -30,8 +30,13 @@ module = [
     "app.core.logging",
     "app.repositories.base",
     "app.api.v1.endpoints.budgets",
+    "app.workers.recurring.tasks",
 ]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["dateutil.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

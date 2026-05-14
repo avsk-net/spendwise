@@ -55,6 +55,9 @@ class User(Base):
     email_tokens: Mapped[list["EmailToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    templates: Mapped[list["TransactionTemplate"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class RefreshToken(Base):

@@ -31,4 +31,5 @@ class MonthlyTotal(BaseModel):
 
 class TrendPoint(BaseModel):
     month: str
+    income: Decimal
     expense: Decimal

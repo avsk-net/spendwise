@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useAuthStore } from "../../../store/authStore"
 import { reportsApi } from "../api/reportsApi"
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend
 } from "recharts"
 
@@ -63,6 +63,7 @@ export default function ReportsPage() {
     month: m.month,
     Income:  parseFloat(m.income),
     Expense: parseFloat(m.expense),
+    Net: parseFloat(m.income) - parseFloat(m.expense),
   }))
 
   const pieData = pie.slice(0, 8).map(p => ({
@@ -79,6 +80,7 @@ export default function ReportsPage() {
 
   const trendData = trend.map(t => ({
     month:   t.month,
+    Income:  parseFloat(t.income),
     Expense: parseFloat(t.expense),
   }))
 
@@ -90,7 +92,7 @@ export default function ReportsPage() {
     }
   })
 
-  const yearOptions = [today.getFullYear() - 1, today.getFullYear()]
+  const yearOptions = [today.getFullYear() - 2, today.getFullYear() - 1, today.getFullYear()]
 
   return (
     <div className="space-y-6">
@@ -136,16 +138,18 @@ export default function ReportsPage() {
         {monthlyChartData.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data</div>
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={monthlyChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart data={monthlyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => `${c} ${parseFloat(v).toFixed(2)}`} />
+              <Tooltip formatter={(v, name) => [`${c} ${parseFloat(v).toFixed(2)}`, name]} />
               <Legend />
               <Bar dataKey="Income"  fill="#22c55e" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Expense" fill="#f87171" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Line type="monotone" dataKey="Net" stroke="#6366f1" strokeWidth={2}
+                dot={{ r: 3, fill: "#6366f1" }} activeDot={{ r: 5 }} name="Net Savings" />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </Card>
@@ -169,19 +173,22 @@ export default function ReportsPage() {
           )}
         </Card>
 
-        {/* 6-month spending trend */}
-        <Card title="6-Month Spending Trend">
+        {/* 6-month trend */}
+        <Card title="6-Month Income vs Expense Trend">
           {trendData.length === 0 ? (
             <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data</div>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={trendData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => `${c} ${parseFloat(v).toFixed(2)}`} />
+                <Tooltip formatter={(v, name) => [`${c} ${parseFloat(v).toFixed(2)}`, name]} />
+                <Legend />
+                <Line type="monotone" dataKey="Income" stroke="#22c55e"
+                  strokeWidth={2} dot={{ r: 3, fill: "#22c55e" }} activeDot={{ r: 5 }} />
                 <Line type="monotone" dataKey="Expense" stroke="#ef4444"
-                  strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                  strokeWidth={2} dot={{ r: 3, fill: "#ef4444" }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
           )}

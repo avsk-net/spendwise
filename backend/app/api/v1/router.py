@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     recurring,
     reports,
     saving_goals,
+    templates,
     transactions,
     users,
     websocket,
@@ -21,6 +22,7 @@ v1_router.include_router(users.router)
 v1_router.include_router(accounts.router)
 v1_router.include_router(categories.router)
 v1_router.include_router(transactions.router)
+v1_router.include_router(templates.router)
 v1_router.include_router(budgets.router)
 v1_router.include_router(recurring.router)
 v1_router.include_router(reports.router)

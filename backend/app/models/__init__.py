@@ -9,4 +9,5 @@ from app.models.recurring import RecurringRule
 from app.models.saving_goal import SavingGoal
 from app.models.transaction import Transaction
 from app.models.email_token import EmailToken
+from app.models.transaction_template import TransactionTemplate
 from app.models.user import RefreshToken, User

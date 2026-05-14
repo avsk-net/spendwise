@@ -1,8 +1,9 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Pencil, Trash2, Download, Bookmark, X } from "lucide-react"
+import { Plus, Pencil, Trash2, Download, Bookmark, X, Star } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { transactionsApi } from "../api/transactionsApi"
+import { templatesApi } from "../api/templatesApi"
 import toast from "react-hot-toast"
 
 const EMPTY_FORM = {
@@ -38,6 +39,11 @@ export default function TransactionsPage() {
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: () => transactionsApi.categories().then(r => r.data),
+  })
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates"],
+    queryFn: () => templatesApi.list().then(r => r.data),
   })
 
   const catMap = Object.fromEntries(categories.map(cat => [cat.id, cat]))
@@ -117,6 +123,41 @@ export default function TransactionsPage() {
       toast.success("Deleted")
     },
   })
+
+  const { mutate: saveTemplate, isPending: savingTemplate } = useMutation({
+    mutationFn: (data) => templatesApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["templates"] })
+      toast.success("Template saved")
+    },
+    onError: () => toast.error("Failed to save template"),
+  })
+
+  const handleSaveAsTemplate = () => {
+    const name = window.prompt("Template name:")
+    if (!name?.trim()) return
+    saveTemplate({
+      name: name.trim(),
+      type: form.type,
+      category_id: form.category_id || undefined,
+      account_id: form.account_id || undefined,
+      amount: form.amount ? parseFloat(form.amount) : undefined,
+      notes: form.notes || undefined,
+      tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+    })
+  }
+
+  const applyTemplate = (tmpl) => {
+    setForm(f => ({
+      ...f,
+      type: tmpl.type,
+      category_id: tmpl.category_id || "",
+      account_id: tmpl.account_id || f.account_id,
+      amount: tmpl.amount != null ? String(tmpl.amount) : f.amount,
+      notes: tmpl.notes || f.notes,
+      tags: (tmpl.tags || []).join(", "),
+    }))
+  }
 
   const openCreate = () => { setForm(EMPTY_FORM); setModal("create") }
   const openEdit = (t) => {
@@ -353,6 +394,17 @@ export default function TransactionsPage() {
               <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-4 space-y-3">
+              {templates.length > 0 && modal === "create" && (
+                <select
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-500"
+                  defaultValue=""
+                  onChange={e => { if (e.target.value) applyTemplate(templates.find(t => t.id === e.target.value)) }}>
+                  <option value="">Use a template…</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              )}
               <div className="flex gap-2">
                 {["income","expense"].map(type => (
                   <button key={type} type="button"
@@ -392,7 +444,13 @@ export default function TransactionsPage() {
               <input type="text" placeholder="Tags: food, travel (comma separated)"
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} />
-              <div className="flex gap-3 pt-2">
+              {modal === "create" && (
+                <button type="button" onClick={handleSaveAsTemplate} disabled={savingTemplate}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 border border-gray-200 rounded-xl text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-60 transition-colors">
+                  <Star size={12} /> Save as template
+                </button>
+              )}
+              <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setModal(null)}
                   className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                   Cancel

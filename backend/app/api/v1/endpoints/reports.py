@@ -164,16 +164,25 @@ async def trend(
     result = await db.execute(
         select(
             func.date_trunc("month", Transaction.date).label("month"),
+            Transaction.type,
             func.coalesce(func.sum(Transaction.amount), 0).label("total"),
         )
         .where(
             Transaction.user_id == user.id,
-            Transaction.type == TransactionType.expense,
+            Transaction.type != TransactionType.transfer,
             Transaction.deleted_at.is_(None),
         )
-        .group_by(func.date_trunc("month", Transaction.date))
+        .group_by(func.date_trunc("month", Transaction.date), Transaction.type)
         .order_by(func.date_trunc("month", Transaction.date).desc())
-        .limit(months)
     )
-    rows = result.all()
-    return [TrendPoint(month=r.month.strftime("%Y-%m"), expense=r.total) for r in reversed(rows)]
+    data: dict = {}
+    for row in result.all():
+        key = row.month.strftime("%Y-%m")
+        if key not in data:
+            data[key] = {"income": Decimal("0"), "expense": Decimal("0")}
+        data[key][row.type.value] = row.total
+    recent = sorted(data.keys(), reverse=True)[:months]
+    return [
+        TrendPoint(month=m, income=data[m]["income"], expense=data[m]["expense"])
+        for m in sorted(recent)
+    ]

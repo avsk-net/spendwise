@@ -19,6 +19,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
     email_reports_enabled: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    is_email_verified: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    email_verified_at: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("NOW()"), nullable=False
     )
@@ -48,6 +50,9 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     saving_goals: Mapped[list["SavingGoal"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    email_tokens: Mapped[list["EmailToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 

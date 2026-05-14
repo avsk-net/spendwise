@@ -35,6 +35,7 @@ class UserResponse(BaseModel):
     username: str
     currency: str
     email_reports_enabled: bool
+    is_email_verified: bool
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -70,3 +71,27 @@ class AccessTokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def min_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class MessageResponse(BaseModel):
+    message: str

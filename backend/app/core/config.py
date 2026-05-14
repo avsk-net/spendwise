@@ -37,9 +37,14 @@ class Settings(BaseSettings):
     SMTP_FROM: str = ""
     SMTP_USE_TLS: bool = True
 
+    # App base URL (used to build links in emails)
+    APP_BASE_URL: str = "http://localhost:5173"
+
     # Rate Limiting
     RATE_LIMIT_LOGIN: str = "5/minute"
     RATE_LIMIT_REGISTER: str = "3/minute"
+    RATE_LIMIT_FORGOT_PASSWORD: str = "3/hour"
+    RATE_LIMIT_RESEND_VERIFICATION: str = "3/hour"
 
     class Config:
         env_file = ".env"

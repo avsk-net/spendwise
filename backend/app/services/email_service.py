@@ -33,6 +33,115 @@ def send_email(to: str, subject: str, html_body: str) -> bool:
         return False
 
 
+def send_verification_email(to: str, username: str, token: str, base_url: str) -> bool:
+    verify_url = f"{base_url}/verify-email?token={token}"
+    subject = "SpendWise — Verify your email address"
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:32px 40px;text-align:center;">
+            <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;">SpendWise</p>
+            <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">Verify your email address</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 40px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
+              Hi <strong>{username}</strong>, welcome to SpendWise!
+            </p>
+            <p style="margin:0 0 28px;font-size:14px;color:#6b7280;line-height:1.6;">
+              Please verify your email address by clicking the button below. This link expires in <strong>24 hours</strong>.
+            </p>
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+              <tr>
+                <td style="background:#6366f1;border-radius:8px;padding:14px 32px;text-align:center;">
+                  <a href="{verify_url}" style="color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+                    Verify Email Address
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+              Or copy this link: <a href="{verify_url}" style="color:#6366f1;word-break:break-all;">{verify_url}</a>
+            </p>
+            <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">
+              If you didn&#39;t create a SpendWise account, you can safely ignore this email.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 40px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">SpendWise — Personal Finance Tracker</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    return send_email(to, subject, html)
+
+
+def send_password_reset_email(to: str, username: str, token: str, base_url: str) -> bool:
+    reset_url = f"{base_url}/reset-password?token={token}"
+    subject = "SpendWise — Reset your password"
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);padding:32px 40px;text-align:center;">
+            <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;">SpendWise</p>
+            <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">Password reset request</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 40px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
+              Hi <strong>{username}</strong>,
+            </p>
+            <p style="margin:0 0 28px;font-size:14px;color:#6b7280;line-height:1.6;">
+              We received a request to reset your SpendWise password. Click the button below to set a new password.
+              This link expires in <strong>1 hour</strong>.
+            </p>
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+              <tr>
+                <td style="background:#ef4444;border-radius:8px;padding:14px 32px;text-align:center;">
+                  <a href="{reset_url}" style="color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+                    Reset Password
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+              Or copy this link: <a href="{reset_url}" style="color:#ef4444;word-break:break-all;">{reset_url}</a>
+            </p>
+            <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">
+              If you didn&#39;t request a password reset, you can safely ignore this email. Your password will not change.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 40px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">SpendWise — Personal Finance Tracker</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+    return send_email(to, subject, html)
+
+
 def send_monthly_report_email(
     to: str,
     username: str,

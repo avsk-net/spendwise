@@ -36,7 +36,7 @@ async def _get_debt(debt_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) ->
 
 
 def _enrich(debt: Debt) -> DebtResponse:
-    paid = sum((p.amount for p in debt.payments), Decimal("0"))
+    paid = sum((p.amount for p in debt.payments), Decimal("0.00"))
     return DebtResponse(
         id=debt.id,
         counterparty=debt.counterparty,

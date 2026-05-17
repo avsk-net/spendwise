@@ -21,6 +21,22 @@ async def setup_db():
         await conn.run_sync(Base.metadata.drop_all)
 
 
+@pytest_asyncio.fixture(scope="session")
+async def auth_tokens(setup_db):
+    """Register the fixture user once per session to avoid rate-limit exhaustion."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        r = await c.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "fixture@example.com",
+                "username": "fixtureuser",
+                "password": "securepass123",
+                "currency": "BDT",
+            },
+        )
+    return r.json()
+
+
 @pytest_asyncio.fixture
 async def db() -> AsyncSession:
     async with TestSession() as session:
@@ -36,22 +52,7 @@ async def client(db: AsyncSession):
 
 
 @pytest_asyncio.fixture
-async def auth_client(client: AsyncClient):
-    """Returns (client, tokens) with a registered user already logged in."""
-    r = await client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "fixture@example.com",
-            "username": "fixtureuser",
-            "password": "securepass123",
-            "currency": "BDT",
-        },
-    )
-    if r.status_code not in (200, 201):
-        r = await client.post(
-            "/api/v1/auth/login",
-            json={"email": "fixture@example.com", "password": "securepass123"},
-        )
-    tokens = r.json()
-    client.headers["Authorization"] = f"Bearer {tokens['access_token']}"
-    return client, tokens
+async def auth_client(client: AsyncClient, auth_tokens: dict):
+    """Returns (client, tokens) using a pre-registered session user."""
+    client.headers["Authorization"] = f"Bearer {auth_tokens['access_token']}"
+    return client, auth_tokens

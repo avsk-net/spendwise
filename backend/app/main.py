@@ -48,7 +48,10 @@ async def _seed_superadmin() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    os.makedirs(os.path.join(settings.MEDIA_DIR, "avatars"), exist_ok=True)
+    try:
+        os.makedirs(os.path.join(settings.MEDIA_DIR, "avatars"), exist_ok=True)
+    except OSError as e:
+        log.warning("Could not pre-create media/avatars directory: %s", e)
     await _seed_superadmin()
     yield
 

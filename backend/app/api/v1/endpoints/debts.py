@@ -130,6 +130,7 @@ async def add_payment(
     if paid_after >= debt.principal:
         debt.status = DebtStatus.paid
     await db.commit()
+    db.expire(debt)
     debt = await _get_debt(debt_id, user.id, db)
     return _enrich(debt)
 
@@ -147,5 +148,6 @@ async def delete_payment(
         raise NotFoundError("Payment")
     await db.delete(payment)
     await db.commit()
+    db.expire(debt)
     debt = await _get_debt(debt_id, user.id, db)
     return _enrich(debt)

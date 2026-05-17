@@ -79,9 +79,7 @@ async def stats(
     ).scalar() or 0
 
     two_fa_users = (
-        await db.execute(
-            select(func.count()).select_from(User).where(User.totp_enabled.is_(True))
-        )
+        await db.execute(select(func.count()).select_from(User).where(User.totp_enabled.is_(True)))
     ).scalar() or 0
 
     return AdminStatsResponse(
@@ -115,8 +113,7 @@ async def user_growth(
         .order_by(func.date_trunc(literal_column("'week'"), User.created_at))
     )
     return [
-        UserGrowthPoint(week=row.week.strftime("%Y-%m-%d"), count=row.count)
-        for row in result.all()
+        UserGrowthPoint(week=row.week.strftime("%Y-%m-%d"), count=row.count) for row in result.all()
     ]
 
 

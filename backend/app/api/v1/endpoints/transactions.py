@@ -18,6 +18,7 @@ from app.models.category import Category
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.transaction import (
+    BulkDeleteRequest,
     TransactionCreate,
     TransactionFilters,
     TransactionResponse,
@@ -278,6 +279,37 @@ async def create_transaction(
         await manager.send(str(user.id), {"type": "notification", "data": notif_payload})
 
     return txn
+
+
+@router.post("/bulk-delete", status_code=204)
+async def bulk_delete_transactions(
+    data: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from datetime import datetime as _dt
+
+    for txn_id in data.ids:
+        result = await db.execute(
+            select(Transaction).where(
+                Transaction.id == txn_id,
+                Transaction.user_id == user.id,
+                Transaction.deleted_at.is_(None),
+            )
+        )
+        txn = result.scalar_one_or_none()
+        if not txn:
+            continue
+        account = await _get_account(txn.account_id, user.id, db)
+        account.balance -= _delta(txn.type, txn.amount)
+        if txn.type == TransactionType.transfer and txn.to_account_id:
+            try:
+                to_acc = await _get_account(txn.to_account_id, user.id, db)
+                to_acc.balance -= txn.amount
+            except Exception:
+                pass
+        txn.deleted_at = _dt.utcnow()
+    await db.commit()
 
 
 @router.get("/{txn_id}", response_model=TransactionResponse)

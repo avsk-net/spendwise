@@ -24,6 +24,8 @@ class User(Base):
     email_reports_enabled: Mapped[bool] = mapped_column(Boolean, server_default="false")
     is_email_verified: Mapped[bool] = mapped_column(Boolean, server_default="false")
     email_verified_at: Mapped[datetime.datetime | None] = mapped_column(nullable=True)
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, server_default="false")
     created_at: Mapped[datetime.datetime] = mapped_column(
         server_default=text("NOW()"), nullable=False
     )

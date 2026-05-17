@@ -39,6 +39,7 @@ class UserResponse(BaseModel):
     is_active: bool
     email_reports_enabled: bool
     is_email_verified: bool
+    totp_enabled: bool = False
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -76,9 +77,11 @@ class PasswordChange(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
+    requires_2fa: bool = False
+    mfa_token: Optional[str] = None
 
 
 class AccessTokenResponse(BaseModel):
@@ -119,3 +122,18 @@ class SessionResponse(BaseModel):
     created_at: datetime
     expires_at: datetime
     model_config = {"from_attributes": True}
+
+
+class TOTPSetupResponse(BaseModel):
+    secret: str
+    provisioning_uri: str
+
+
+class TOTPVerifyRequest(BaseModel):
+    code: str
+    secret: Optional[str] = None
+
+
+class MFAVerifyRequest(BaseModel):
+    mfa_token: str
+    code: str

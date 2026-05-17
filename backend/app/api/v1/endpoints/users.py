@@ -9,7 +9,13 @@ from app.core.security import hash_password, verify_password
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.user import PasswordChange, UserResponse, UserUpdate
+from app.schemas.user import (
+    PasswordChange,
+    TOTPSetupResponse,
+    TOTPVerifyRequest,
+    UserResponse,
+    UserUpdate,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -106,3 +112,50 @@ async def delete_me(
 ):
     await db.delete(user)
     await db.commit()
+
+
+@router.post("/me/2fa/setup", response_model=TOTPSetupResponse)
+async def setup_2fa(user: User = Depends(get_current_user)):
+    import pyotp
+
+    secret = pyotp.random_base32()
+    provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=user.email, issuer_name="SpendWise"
+    )
+    return TOTPSetupResponse(secret=secret, provisioning_uri=provisioning_uri)
+
+
+@router.post("/me/2fa/enable", response_model=UserResponse)
+async def enable_2fa(
+    data: TOTPVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    import pyotp
+
+    if not data.secret:
+        from app.core.exceptions import ValidationError
+
+        raise ValidationError("Secret required", "MISSING_SECRET")
+    totp = pyotp.TOTP(data.secret)
+    if not totp.verify(data.code, valid_window=1):
+        from app.core.exceptions import ValidationError
+
+        raise ValidationError("Invalid code", "INVALID_TOTP")
+    user.totp_secret = data.secret
+    user.totp_enabled = True
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.delete("/me/2fa", response_model=UserResponse)
+async def disable_2fa(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    user.totp_secret = None
+    user.totp_enabled = False
+    await db.commit()
+    await db.refresh(user)
+    return user

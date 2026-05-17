@@ -6,7 +6,7 @@ import { debtsApi } from "../api/debtsApi"
 import toast from "react-hot-toast"
 
 const EMPTY_DEBT = {
-  counterparty_name: "", type: "borrowed", principal: "", interest_rate: "",
+  counterparty: "", type: "borrowed", principal: "", interest_rate: "",
   due_date: "", notes: "",
 }
 
@@ -30,7 +30,7 @@ function DebtModal({ debt, onClose }) {
   const [form, setForm] = useState(
     debt
       ? {
-          counterparty_name: debt.counterparty_name || "",
+          counterparty: debt.counterparty || "",
           type: debt.type || "borrowed",
           principal: debt.principal || "",
           interest_rate: debt.interest_rate || "",
@@ -91,11 +91,11 @@ function DebtModal({ debt, onClose }) {
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-3">
           <input
             type="text"
-            placeholder="Counterparty name"
+            placeholder="Counterparty name (e.g. John, Bank)"
             required
             className={inputCls}
-            value={form.counterparty_name}
-            onChange={e => setForm(f => ({ ...f, counterparty_name: e.target.value }))}
+            value={form.counterparty}
+            onChange={e => setForm(f => ({ ...f, counterparty: e.target.value }))}
           />
           <div className="flex gap-2">
             {["borrowed", "lent"].map(t => (
@@ -217,7 +217,7 @@ function PaymentModal({ debt, onClose }) {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-800 dark:text-white">
-            Payments — {debt.counterparty_name}
+            Payments — {debt.counterparty}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
@@ -306,7 +306,7 @@ function DebtCard({ debt, c, onEdit, onAddPayment, onMarkPaid, onDelete }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-gray-800 dark:text-white text-sm truncate">
-                {debt.counterparty_name}
+                {debt.counterparty}
               </span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isBorrowed ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400" : "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"}`}>
                 {isBorrowed ? "Borrowed" : "Lent"}
@@ -394,7 +394,7 @@ export default function DebtPage() {
   })
 
   const { mutate: markPaid } = useMutation({
-    mutationFn: (debt) => debtsApi.update(debt.id, { ...debt, status: "paid" }),
+    mutationFn: (debt) => debtsApi.update(debt.id, { status: "paid" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["debts"] })
       toast.success("Marked as paid")

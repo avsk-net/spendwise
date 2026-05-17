@@ -8,16 +8,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.database import get_db
 from app.dependencies import get_current_superadmin
+from app.enums.transaction_type import TransactionType
+from app.models.account import Account
 from app.models.audit_log import AuditAction, AuditLog
+from app.models.budget import Budget
+from app.models.notification import Notification, NotificationType
+from app.models.transaction import Transaction
 from app.models.user import RefreshToken, User
 from app.repositories.user_repository import RefreshTokenRepository
 from app.schemas.user import (
     ActivityLogEntry,
+    AdminNotifyRequest,
     AdminStatsResponse,
     AdminUserDetail,
     AdminUserUpdate,
     RecentLogin,
     UserGrowthPoint,
+    UserLogEntry,
     UserResponse,
 )
 
@@ -82,6 +89,31 @@ async def stats(
         await db.execute(select(func.count()).select_from(User).where(User.totp_enabled.is_(True)))
     ).scalar() or 0
 
+    online_now = (
+        await db.execute(
+            select(func.count())
+            .select_from(User)
+            .where(User.last_active_at >= now - timedelta(minutes=5))
+        )
+    ).scalar() or 0
+
+    total_transactions = (
+        await db.execute(select(func.count()).select_from(Transaction))
+    ).scalar() or 0
+
+    total_budgets = (await db.execute(select(func.count()).select_from(Budget))).scalar() or 0
+
+    failed_logins_24h = (
+        await db.execute(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(
+                AuditLog.action == AuditAction.LOGIN_FAILED,
+                AuditLog.created_at >= now - timedelta(hours=24),
+            )
+        )
+    ).scalar() or 0
+
     return AdminStatsResponse(
         total_users=total,
         active_sessions=active_sessions,
@@ -91,6 +123,10 @@ async def stats(
         active_7_days=active_7_days,
         verified_users=verified_users,
         two_fa_users=two_fa_users,
+        online_now=online_now,
+        total_transactions=total_transactions,
+        total_budgets=total_budgets,
+        failed_logins_24h=failed_logins_24h,
     )
 
 
@@ -198,6 +234,54 @@ async def user_detail(
         RecentLogin(at=row.created_at, ip=row.ip_address) for row in logins_result.all()
     ]
 
+    transaction_count = (
+        await db.execute(
+            select(func.count()).select_from(Transaction).where(Transaction.user_id == user_id)
+        )
+    ).scalar() or 0
+
+    total_income = float(
+        (
+            await db.execute(
+                select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                    Transaction.user_id == user_id,
+                    Transaction.type == TransactionType.income,
+                )
+            )
+        ).scalar()
+        or 0
+    )
+
+    total_expense = float(
+        (
+            await db.execute(
+                select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                    Transaction.user_id == user_id,
+                    Transaction.type == TransactionType.expense,
+                )
+            )
+        ).scalar()
+        or 0
+    )
+
+    account_count = (
+        await db.execute(
+            select(func.count()).select_from(Account).where(Account.user_id == user_id)
+        )
+    ).scalar() or 0
+
+    budget_count = (
+        await db.execute(select(func.count()).select_from(Budget).where(Budget.user_id == user_id))
+    ).scalar() or 0
+
+    failed_login_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(AuditLog.user_id == user_id, AuditLog.action == AuditAction.LOGIN_FAILED)
+        )
+    ).scalar() or 0
+
     return AdminUserDetail(
         id=str(user.id),
         username=user.username,
@@ -213,7 +297,58 @@ async def user_detail(
         login_count=login_count,
         session_count=session_count,
         recent_logins=recent_logins,
+        transaction_count=transaction_count,
+        total_income=total_income,
+        total_expense=total_expense,
+        account_count=account_count,
+        budget_count=budget_count,
+        failed_login_count=failed_login_count,
     )
+
+
+@router.get("/users/{user_id}/logs", response_model=list[UserLogEntry])
+async def user_logs(
+    user_id: uuid.UUID,
+    limit: int = Query(default=50, le=200),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superadmin),
+):
+    await _get_user(user_id, db)
+    result = await db.execute(
+        select(AuditLog)
+        .where(AuditLog.user_id == user_id)
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+    )
+    return [
+        UserLogEntry(
+            id=str(log.id),
+            action=log.action,
+            ip_address=log.ip_address,
+            created_at=log.created_at,
+            resource_type=log.resource_type,
+            resource_id=log.resource_id,
+        )
+        for log in result.scalars().all()
+    ]
+
+
+@router.post("/users/{user_id}/notify", status_code=status.HTTP_204_NO_CONTENT)
+async def notify_user(
+    user_id: uuid.UUID,
+    body: AdminNotifyRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_superadmin),
+):
+    await _get_user(user_id, db)
+    db.add(
+        Notification(
+            user_id=user_id,
+            type=NotificationType.system,
+            message=body.message,
+        )
+    )
+    await db.commit()
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)

@@ -41,6 +41,7 @@ from app.schemas.user import (
 )
 from app.services.email_service import send_password_reset_email, send_verification_email
 from app.services.seed import seed_categories_for_user
+from app.utils.request import get_client_ip
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -84,7 +85,7 @@ async def register(request: Request, data: UserRegister, db: AsyncSession = Depe
         AuditLog(
             user_id=user.id,
             action=AuditAction.REGISTER,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         )
     )
     await db.commit()
@@ -104,7 +105,7 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
         db.add(
             AuditLog(
                 action=AuditAction.LOGIN_FAILED,
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request),
                 new_value={"email": data.email},
             )
         )
@@ -117,7 +118,7 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
             AuditLog(
                 user_id=user.id,
                 action=AuditAction.LOGIN_FAILED,
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request),
                 new_value={"mfa_challenge": True},
             )
         )
@@ -132,7 +133,7 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
         AuditLog(
             user_id=user.id,
             action=AuditAction.LOGIN,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         )
     )
     await db.commit()
@@ -167,7 +168,7 @@ async def verify_2fa(request: Request, data: MFAVerifyRequest, db: AsyncSession 
         AuditLog(
             user_id=user.id,
             action=AuditAction.LOGIN,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         )
     )
     await db.commit()
@@ -194,7 +195,7 @@ async def logout(
         AuditLog(
             user_id=user.id,
             action=AuditAction.LOGOUT,
-            ip_address=request.client.host if request.client else None,
+            ip_address=get_client_ip(request),
         )
     )
     await db.commit()

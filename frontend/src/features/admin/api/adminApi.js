@@ -9,4 +9,6 @@ export const adminApi = {
   updateUser: (id, data) => apiClient.patch(`/admin/users/${id}`, data),
   deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
   forceLogout:(id) => apiClient.post(`/admin/users/${id}/force-logout`),
+  userLogs:   (id, limit = 50) => apiClient.get(`/admin/users/${id}/logs`, { params: { limit } }),
+  notify:     (id, message) => apiClient.post(`/admin/users/${id}/notify`, { message }),
 }

@@ -50,6 +50,7 @@ class AdminUserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     currency: Optional[str] = None
     is_active: Optional[bool] = None
+    is_email_verified: Optional[bool] = None
 
 
 class AdminStatsResponse(BaseModel):
@@ -61,6 +62,10 @@ class AdminStatsResponse(BaseModel):
     active_7_days: int
     verified_users: int
     two_fa_users: int
+    total_transactions: int
+    total_budgets: int
+    failed_logins_24h: int
+    online_now: int
 
 
 class UserUpdate(BaseModel):
@@ -179,3 +184,22 @@ class AdminUserDetail(BaseModel):
     login_count: int
     session_count: int
     recent_logins: list[RecentLogin]
+    transaction_count: int
+    total_income: float
+    total_expense: float
+    account_count: int
+    budget_count: int
+    failed_login_count: int
+
+
+class UserLogEntry(BaseModel):
+    id: str
+    action: str
+    ip_address: Optional[str] = None
+    created_at: datetime
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
+
+
+class AdminNotifyRequest(BaseModel):
+    message: str

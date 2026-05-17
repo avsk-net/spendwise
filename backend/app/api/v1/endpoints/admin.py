@@ -113,7 +113,8 @@ async def user_growth(
         .order_by(func.date_trunc(literal_column("'week'"), User.created_at))
     )
     return [
-        UserGrowthPoint(week=row.week.strftime("%Y-%m-%d"), count=row.count) for row in result.all()
+        UserGrowthPoint(week=row.week.strftime("%Y-%m-%d"), count=int(row.count))
+        for row in result.all()
     ]
 
 

@@ -22,8 +22,8 @@ def check_goals_and_debts():
         goals = (
             db.execute(
                 select(SavingGoal).where(
-                    SavingGoal.is_completed == False,
-                    SavingGoal.deadline != None,
+                    SavingGoal.is_completed.is_(False),
+                    SavingGoal.deadline.is_not(None),
                     SavingGoal.deadline >= today,
                     SavingGoal.deadline <= goal_threshold,
                     SavingGoal.deleted_at.is_(None),
@@ -47,7 +47,7 @@ def check_goals_and_debts():
             db.execute(
                 select(Debt).where(
                     Debt.status == DebtStatus.active,
-                    Debt.due_date != None,
+                    Debt.due_date.is_not(None),
                     Debt.due_date >= today,
                     Debt.due_date <= debt_threshold,
                 )

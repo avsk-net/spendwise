@@ -46,6 +46,11 @@ async def auth_client(client: AsyncClient):
             "currency": "BDT",
         },
     )
+    if r.status_code not in (200, 201):
+        r = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "fixture@example.com", "password": "securepass123"},
+        )
     tokens = r.json()
     client.headers["Authorization"] = f"Bearer {tokens['access_token']}"
     return client, tokens

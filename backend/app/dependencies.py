@@ -27,3 +27,11 @@ async def get_current_user(
     if not user:
         raise InvalidCredentialsError()
     return user
+
+
+async def get_current_superadmin(
+    user: User = Depends(get_current_user),
+) -> User:
+    if not user.is_superadmin:
+        raise InvalidCredentialsError()
+    return user

@@ -20,10 +20,18 @@ const SavingGoalsPage  = lazy(() => import("./features/saving-goals/pages/Saving
 const DebtPage         = lazy(() => import("./features/debts/pages/DebtPage"))
 const CategoriesPage   = lazy(() => import("./features/categories/pages/CategoriesPage"))
 const NotepadPage      = lazy(() => import("./features/notepad/pages/NotepadPage"))
+const AdminPage        = lazy(() => import("./features/admin/pages/AdminPage"))
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
   return isAuthenticated ? children : <Navigate to="/login" replace />
+}
+
+function AdminRoute({ children }) {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!user?.is_superadmin) return <Navigate to="/dashboard" replace />
+  return children
 }
 
 function Spinner() {
@@ -61,6 +69,13 @@ export default function App() {
             <Route path="/debts"      element={<Suspense fallback={<Spinner />}><DebtPage /></Suspense>} />
             <Route path="/notepad"    element={<Suspense fallback={<Spinner />}><NotepadPage /></Suspense>} />
             <Route path="/settings" element={<Suspense fallback={<Spinner />}><SettingsPage /></Suspense>} />
+          </Route>
+          <Route path="/admin" element={
+            <AdminRoute>
+              <DashboardLayout />
+            </AdminRoute>
+          }>
+            <Route index element={<Suspense fallback={<Spinner />}><AdminPage /></Suspense>} />
           </Route>
         </Routes>
       </BrowserRouter>

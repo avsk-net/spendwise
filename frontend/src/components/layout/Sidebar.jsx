@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, Target,
   RefreshCw, BarChart2, Settings, LogOut, TrendingUp, PiggyBank, X,
-  Tag, CreditCard, NotebookText
+  Tag, CreditCard, NotebookText, ShieldCheck,
 } from "lucide-react"
 import { useAuthStore } from "../../store/authStore"
 import { authApi } from "../../features/auth/api/authApi"
@@ -26,15 +26,16 @@ export default function Sidebar({ open, onClose }) {
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    try { await authApi.logout(refreshToken) } catch { /* ignore logout errors */ }
+    try { await authApi.logout(refreshToken) } catch { /* ignore */ }
     logout()
     navigate("/login")
   }
 
-  const handleNavClick = () => {
-    // Close sidebar on mobile when a nav item is tapped
-    if (onClose) onClose()
-  }
+  const handleNavClick = () => { if (onClose) onClose() }
+
+  const avatarUrl = user?.avatar_url
+    ? (user.avatar_url.startsWith("http") ? user.avatar_url : `${import.meta.env.VITE_API_BASE_URL || ""}${user.avatar_url}`)
+    : null
 
   return (
     <aside className={`
@@ -52,9 +53,7 @@ export default function Sidebar({ open, onClose }) {
           </div>
           <span className="text-white font-bold text-lg">Spendwise</span>
         </div>
-        {/* Close button — mobile only */}
-        <button
-          onClick={onClose}
+        <button onClick={onClose}
           className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors md:hidden"
           aria-label="Close menu">
           <X size={18} />
@@ -75,14 +74,29 @@ export default function Sidebar({ open, onClose }) {
             {label}
           </NavLink>
         ))}
+
+        {user?.is_superadmin && (
+          <NavLink to="/admin" onClick={handleNavClick}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all mt-2 border ${
+                isActive
+                  ? "bg-indigo-600 text-white border-indigo-500 shadow-lg"
+                  : "text-indigo-400 hover:bg-indigo-900/40 hover:text-indigo-300 border-indigo-800/50"
+              }`
+            }>
+            <ShieldCheck size={17} className="shrink-0" />
+            Admin Panel
+          </NavLink>
+        )}
       </nav>
 
       <div className="border-t border-gray-800 pt-4 mt-4">
         <div className="flex items-center gap-3 px-3 mb-3">
-          <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center shrink-0">
-            <span className="text-primary-400 text-sm font-bold">
-              {user?.username?.[0]?.toUpperCase()}
-            </span>
+          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-primary-500/20 flex items-center justify-center">
+            {avatarUrl
+              ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+              : <span className="text-primary-400 text-sm font-bold">{user?.username?.[0]?.toUpperCase()}</span>
+            }
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white text-sm font-medium truncate">{user?.username}</p>

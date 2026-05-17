@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import ValidationError
 from app.core.security import hash_password, verify_password
 from app.database import get_db
@@ -9,6 +12,9 @@ from app.models.user import User
 from app.schemas.user import PasswordChange, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+_ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_MAX_AVATAR_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 @router.get("/me", response_model=UserResponse)
@@ -26,6 +32,54 @@ async def update_me(
         setattr(user, field, value)
     await db.commit()
     await db.refresh(user)
+    return user
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+        raise ValidationError("Only JPEG, PNG, WebP, or GIF images are accepted", "INVALID_FILE")
+    data = await file.read()
+    if len(data) > _MAX_AVATAR_BYTES:
+        raise ValidationError("File must be under 5 MB", "FILE_TOO_LARGE")
+
+    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
+    avatars_dir = os.path.join(settings.MEDIA_DIR, "avatars")
+    os.makedirs(avatars_dir, exist_ok=True)
+
+    # Remove previous avatar file if present
+    if user.avatar_url:
+        old_path = os.path.join(settings.MEDIA_DIR, user.avatar_url.lstrip("/media/"))
+        if os.path.isfile(old_path):
+            os.remove(old_path)
+
+    filename = f"{user.id}.{ext}"
+    save_path = os.path.join(avatars_dir, filename)
+    with open(save_path, "wb") as f:
+        f.write(data)
+
+    user.avatar_url = f"/media/avatars/{filename}"
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@router.delete("/me/avatar", response_model=UserResponse)
+async def delete_avatar(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.avatar_url:
+        path = os.path.join(settings.MEDIA_DIR, user.avatar_url.lstrip("/media/"))
+        if os.path.isfile(path):
+            os.remove(path)
+        user.avatar_url = None
+        await db.commit()
+        await db.refresh(user)
     return user
 
 

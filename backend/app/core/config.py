@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     # App base URL (used to build links in emails)
     APP_BASE_URL: str = "http://localhost:5173"
 
+    # Superadmin (credentials set server-side only, never committed)
+    SUPERADMIN_EMAIL: str = ""
+    SUPERADMIN_PASSWORD: str = ""
+
+    # Media storage
+    MEDIA_DIR: str = "/media"
+
     # Rate Limiting
     RATE_LIMIT_LOGIN: str = "5/minute"
     RATE_LIMIT_REGISTER: str = "3/minute"

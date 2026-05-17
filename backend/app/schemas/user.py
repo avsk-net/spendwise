@@ -34,10 +34,27 @@ class UserResponse(BaseModel):
     email: str
     username: str
     currency: str
+    avatar_url: Optional[str] = None
+    is_superadmin: bool
+    is_active: bool
     email_reports_enabled: bool
     is_email_verified: bool
     created_at: datetime
     model_config = {"from_attributes": True}
+
+
+class AdminUserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    currency: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class AdminStatsResponse(BaseModel):
+    total_users: int
+    active_sessions: int
+    signups_last_7_days: int
+    signups_last_30_days: int
 
 
 class UserUpdate(BaseModel):

@@ -48,6 +48,7 @@ async def _seed_superadmin() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    os.makedirs(os.path.join(settings.MEDIA_DIR, "avatars"), exist_ok=True)
     await _seed_superadmin()
     yield
 

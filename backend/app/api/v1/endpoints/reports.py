@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -108,7 +108,7 @@ async def daily(
         )
         .where(
             Transaction.user_id == user.id,
-            func.date_trunc("month", Transaction.date) == month_start,
+            func.date_trunc(literal_column("'month'"), Transaction.date) == month_start,
             Transaction.type != TransactionType.transfer,
             Transaction.deleted_at.is_(None),
         )
@@ -135,7 +135,7 @@ async def monthly(
 ):
     result = await db.execute(
         select(
-            func.date_trunc("month", Transaction.date).label("month"),
+            func.date_trunc(literal_column("'month'"), Transaction.date).label("month"),
             Transaction.type,
             func.coalesce(func.sum(Transaction.amount), 0).label("total"),
         )
@@ -145,8 +145,8 @@ async def monthly(
             Transaction.type != TransactionType.transfer,
             Transaction.deleted_at.is_(None),
         )
-        .group_by(func.date_trunc("month", Transaction.date), Transaction.type)
-        .order_by(func.date_trunc("month", Transaction.date))
+        .group_by(func.date_trunc(literal_column("'month'"), Transaction.date), Transaction.type)
+        .order_by(func.date_trunc(literal_column("'month'"), Transaction.date))
     )
     monthly: dict = {}
     for row in result.all():
@@ -168,7 +168,7 @@ async def trend(
 ):
     result = await db.execute(
         select(
-            func.date_trunc("month", Transaction.date).label("month"),
+            func.date_trunc(literal_column("'month'"), Transaction.date).label("month"),
             Transaction.type,
             func.coalesce(func.sum(Transaction.amount), 0).label("total"),
         )
@@ -177,8 +177,8 @@ async def trend(
             Transaction.type != TransactionType.transfer,
             Transaction.deleted_at.is_(None),
         )
-        .group_by(func.date_trunc("month", Transaction.date), Transaction.type)
-        .order_by(func.date_trunc("month", Transaction.date).desc())
+        .group_by(func.date_trunc(literal_column("'month'"), Transaction.date), Transaction.type)
+        .order_by(func.date_trunc(literal_column("'month'"), Transaction.date).desc())
     )
     data: dict = {}
     for row in result.all():
@@ -297,7 +297,7 @@ async def export_report_pdf(
     year = date_from.year
     monthly_result = await db.execute(
         select(
-            func.date_trunc("month", Transaction.date).label("month"),
+            func.date_trunc(literal_column("'month'"), Transaction.date).label("month"),
             Transaction.type,
             func.coalesce(func.sum(Transaction.amount), 0).label("total"),
         )
@@ -307,8 +307,8 @@ async def export_report_pdf(
             Transaction.type != TransactionType.transfer,
             Transaction.deleted_at.is_(None),
         )
-        .group_by(func.date_trunc("month", Transaction.date), Transaction.type)
-        .order_by(func.date_trunc("month", Transaction.date))
+        .group_by(func.date_trunc(literal_column("'month'"), Transaction.date), Transaction.type)
+        .order_by(func.date_trunc(literal_column("'month'"), Transaction.date))
     )
     monthly_data: dict = {}
     for row in monthly_result.all():

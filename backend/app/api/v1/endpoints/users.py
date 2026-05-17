@@ -63,7 +63,7 @@ async def upload_avatar(
 
     # Remove previous avatar file if present
     if user.avatar_url:
-        old_path = os.path.join(settings.MEDIA_DIR, user.avatar_url.lstrip("/media/"))
+        old_path = os.path.join(settings.MEDIA_DIR, user.avatar_url.removeprefix("/media/"))
         if os.path.isfile(old_path):
             os.remove(old_path)
 
@@ -84,7 +84,7 @@ async def delete_avatar(
     user: User = Depends(get_current_user),
 ):
     if user.avatar_url:
-        path = os.path.join(settings.MEDIA_DIR, user.avatar_url.lstrip("/media/"))
+        path = os.path.join(settings.MEDIA_DIR, user.avatar_url.removeprefix("/media/"))
         if os.path.isfile(path):
             os.remove(path)
         user.avatar_url = None

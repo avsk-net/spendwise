@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
@@ -30,7 +30,7 @@ async def stats(
 ):
     total = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     active_sessions = (
         await db.execute(
             select(func.count())

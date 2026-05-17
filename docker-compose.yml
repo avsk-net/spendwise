@@ -30,6 +30,7 @@ services:
   api:
     image: ghcr.io/${GITHUB_REPO}/spendwise-api:latest
     restart: unless-stopped
+    user: root
     env_file: .env
     ports:
       - "127.0.0.1:8001:8000"

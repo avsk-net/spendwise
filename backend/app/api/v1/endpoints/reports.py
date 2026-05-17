@@ -4,17 +4,22 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.enums.debt_type import DebtStatus
 from app.enums.transaction_type import TransactionType
+from app.models.account import Account
 from app.models.category import Category
+from app.models.debt import Debt
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.report import (
     CategoryBreakdown,
     DailyTotal,
     MonthlyTotal,
+    NetWorthResponse,
     SummaryResponse,
     TrendPoint,
 )
@@ -186,3 +191,40 @@ async def trend(
         TrendPoint(month=m, income=data[m]["income"], expense=data[m]["expense"])
         for m in sorted(recent)
     ]
+
+
+@router.get("/net-worth", response_model=NetWorthResponse)
+async def net_worth(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    assets_result = await db.execute(
+        select(func.coalesce(func.sum(Account.balance), 0)).where(
+            Account.user_id == user.id,
+            Account.deleted_at.is_(None),
+        )
+    )
+    total_assets: Decimal = Decimal(assets_result.scalar() or 0)
+
+    debts_result = await db.execute(
+        select(Debt)
+        .options(selectinload(Debt.payments))
+        .where(
+            Debt.user_id == user.id,
+            Debt.status != DebtStatus.paid,
+        )
+    )
+    debts = debts_result.scalars().all()
+    total_liabilities: Decimal = sum(
+        (
+            max(Decimal("0"), d.principal - sum((p.amount for p in d.payments), Decimal("0")))
+            for d in debts
+        ),
+        Decimal("0"),
+    )
+
+    return NetWorthResponse(
+        net_worth=total_assets - total_liabilities,
+        total_assets=total_assets,
+        total_liabilities=total_liabilities,
+    )

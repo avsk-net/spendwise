@@ -33,3 +33,9 @@ class TrendPoint(BaseModel):
     month: str
     income: Decimal
     expense: Decimal
+
+
+class NetWorthResponse(BaseModel):
+    net_worth: Decimal
+    total_assets: Decimal
+    total_liabilities: Decimal

@@ -60,6 +60,11 @@ export default function DashboardPage() {
     queryFn: () => txApi.categories().then(r => r.data),
   })
 
+  const { data: netWorth } = useQuery({
+    queryKey: ["net-worth"],
+    queryFn: () => import("../../reports/api/reportsApi").then(m => m.reportsApi.netWorth().then(r => r.data)),
+  })
+
   const showOnboarding = !onboardDismissed && !accountsLoading && !recentLoading
     && accounts.length === 0 && recent.length === 0
 
@@ -99,6 +104,34 @@ export default function DashboardPage() {
           icon={<Activity size={20} />}
           color={net >= 0 ? "bg-gradient-to-br from-primary-500 to-primary-600" : "bg-gradient-to-br from-orange-500 to-orange-600"} />
       </div>
+
+      {/* Net Worth */}
+      {netWorth && (
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white/70 text-xs font-medium uppercase tracking-wide">Net Worth</p>
+              <p className="text-2xl font-bold mt-1">
+                {c} {parseFloat(netWorth.net_worth).toLocaleString("en", {minimumFractionDigits: 2})}
+              </p>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div className="text-right">
+                <p className="text-white/60 text-xs">Assets</p>
+                <p className="font-semibold text-green-300">
+                  {c} {parseFloat(netWorth.total_assets).toLocaleString("en", {minimumFractionDigits: 2})}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-white/60 text-xs">Liabilities</p>
+                <p className="font-semibold text-red-300">
+                  {c} {parseFloat(netWorth.total_liabilities).toLocaleString("en", {minimumFractionDigits: 2})}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

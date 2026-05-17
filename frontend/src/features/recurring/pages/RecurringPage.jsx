@@ -7,6 +7,18 @@ import { transactionsApi } from "../../transactions/api/transactionsApi"
 import { accountsApi } from "../../accounts/api/accountsApi"
 import toast from "react-hot-toast"
 
+function relativeDate(dateStr) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const target = new Date(dateStr)
+  target.setHours(0, 0, 0, 0)
+  const diff = Math.round((target - today) / 86400000)
+  if (diff === 0) return { label: "Today", cls: "text-orange-500 font-medium" }
+  if (diff === 1) return { label: "Tomorrow", cls: "text-blue-500" }
+  if (diff < 0) return { label: `${Math.abs(diff)}d overdue`, cls: "text-red-500 font-medium" }
+  return { label: `in ${diff}d`, cls: "text-gray-400" }
+}
+
 const FREQ_COLORS = {
   daily:   "bg-red-100 text-red-600",
   weekly:  "bg-orange-100 text-orange-600",
@@ -161,10 +173,17 @@ export default function RecurringPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <p className="text-xs text-gray-400">{acc.name || "Unknown account"}</p>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <Calendar size={11} />
-                          Next: {r.next_run_date}
-                        </div>
+                        {(() => {
+                          const rel = relativeDate(r.next_run_date)
+                          return (
+                            <div className="flex items-center gap-1 text-xs">
+                              <Calendar size={11} className="text-gray-400" />
+                              <span className="text-gray-400">Next:</span>
+                              <span className={rel.cls}>{rel.label}</span>
+                              <span className="text-gray-300">({r.next_run_date})</span>
+                            </div>
+                          )
+                        })()}
                         {r.notes && <p className="text-xs text-gray-400 truncate max-w-[10rem]">{r.notes}</p>}
                       </div>
                     </div>

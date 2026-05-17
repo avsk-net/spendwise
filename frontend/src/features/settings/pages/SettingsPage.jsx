@@ -1,6 +1,6 @@
 import { useState } from "react"
-import { useMutation } from "@tanstack/react-query"
-import { User, Lock, Bell, Trash2, CheckCircle, Mail, ShieldCheck, ShieldAlert } from "lucide-react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { User, Lock, Bell, Trash2, CheckCircle, Mail, ShieldCheck, ShieldAlert, Monitor } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { useNavigate } from "react-router-dom"
 import toast from "react-hot-toast"
@@ -57,6 +57,30 @@ export default function SettingsPage() {
       toast.success("Account deleted")
     },
     onError: (e) => toast.error(e.response?.data?.message || "Failed"),
+  })
+
+  const qc = useQueryClient()
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["sessions"],
+    queryFn: () => apiClient.get("/auth/sessions").then(r => r.data),
+  })
+
+  const { mutate: revokeSession } = useMutation({
+    mutationFn: (id) => apiClient.delete(`/auth/sessions/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sessions"] })
+      toast.success("Session revoked")
+    },
+  })
+
+  const { mutate: revokeAllSessions } = useMutation({
+    mutationFn: () => apiClient.delete("/auth/sessions"),
+    onSuccess: () => {
+      toast.success("All sessions revoked. Please log in again.")
+      logout()
+      navigate("/login")
+    },
   })
 
   const handlePasswordSubmit = (e) => {
@@ -224,6 +248,54 @@ export default function SettingsPage() {
           <p>🟡 <strong className="text-gray-700 dark:text-gray-200">Budget warning</strong> — triggered when you reach 80% of a category budget</p>
           <p>🔴 <strong className="text-gray-700 dark:text-gray-200">Budget exceeded</strong> — triggered when you exceed 100% of a budget</p>
           <p className="text-xs text-gray-400 pt-1">Notifications appear in the bell icon in the top bar.</p>
+        </div>
+      </div>
+
+      {/* Active Sessions */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
+              <Monitor size={16} className="text-indigo-600" />
+            </div>
+            <h2 className="font-semibold text-gray-800 dark:text-white">Active Sessions</h2>
+          </div>
+          {sessions.length > 1 && (
+            <button
+              onClick={() => { if (window.confirm("Revoke all sessions? You will be logged out.")) revokeAllSessions() }}
+              className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors">
+              Revoke all
+            </button>
+          )}
+        </div>
+        <div className="px-6 py-4">
+          {sessions.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">No active sessions</p>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map((s, i) => (
+                <div key={s.id} className="flex items-center justify-between py-2.5 border-b border-gray-50 dark:border-gray-700 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                      Session {i + 1}
+                      {i === 0 && (
+                        <span className="ml-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-1.5 py-0.5 rounded-full">current</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Started {new Date(s.created_at).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}
+                      {" · "}Expires {new Date(s.expires_at).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => revokeSession(s.id)}
+                    className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 dark:border-gray-600 hover:border-red-300 px-2.5 py-1 rounded-lg transition-colors">
+                    Revoke
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

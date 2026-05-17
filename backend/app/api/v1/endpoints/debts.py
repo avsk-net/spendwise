@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -55,14 +55,19 @@ def _enrich(debt: Debt) -> DebtResponse:
 
 @router.get("", response_model=list[DebtResponse])
 async def list_debts(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, le=100),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    offset = (page - 1) * limit
     result = await db.execute(
         select(Debt)
         .options(selectinload(Debt.payments))
         .where(Debt.user_id == user.id)
         .order_by(Debt.created_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
     return [_enrich(d) for d in result.scalars().all()]
 

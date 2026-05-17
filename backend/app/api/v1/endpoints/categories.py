@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,11 +12,19 @@ from app.models.category import Category
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 
+
+class CategoryTreeNode(CategoryResponse):
+    children: list["CategoryTreeNode"] = []
+    model_config = {"from_attributes": True}
+
+
+CategoryTreeNode.model_rebuild()
+
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 
-@router.get("", response_model=list[CategoryResponse])
-async def list_categories(
+@router.get("/tree", response_model=list[CategoryTreeNode])
+async def categories_tree(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -25,6 +33,33 @@ async def list_categories(
             Category.user_id == user.id,
             Category.deleted_at.is_(None),
         )
+    )
+    all_cats = result.scalars().all()
+    # Build tree in memory
+    nodes = {c.id: CategoryTreeNode.model_validate(c) for c in all_cats}
+    roots = []
+    for cat in all_cats:
+        node = nodes[cat.id]
+        if cat.parent_id and cat.parent_id in nodes:
+            nodes[cat.parent_id].children.append(node)
+        else:
+            roots.append(node)
+    return roots
+
+
+@router.get("", response_model=list[CategoryResponse])
+async def list_categories(
+    limit: int = Query(default=200, le=500),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Category)
+        .where(
+            Category.user_id == user.id,
+            Category.deleted_at.is_(None),
+        )
+        .limit(limit)
     )
     return result.scalars().all()
 

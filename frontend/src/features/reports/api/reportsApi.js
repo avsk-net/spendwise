@@ -5,4 +5,5 @@ export const reportsApi = {
   daily:      (params) => apiClient.get("/reports/daily", { params }),
   monthly:    (params) => apiClient.get("/reports/monthly", { params }),
   trend:      (months) => apiClient.get("/reports/trend", { params: { months } }),
+  netWorth:   () => apiClient.get("/reports/net-worth"),
 }

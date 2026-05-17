@@ -1,8 +1,10 @@
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -28,6 +30,7 @@ from app.schemas.user import (
     MessageResponse,
     RefreshRequest,
     ResetPasswordRequest,
+    SessionResponse,
     TokenResponse,
     UserLogin,
     UserRegister,
@@ -144,6 +147,57 @@ async def logout(
             ip_address=request.client.host if request.client else None,
         )
     )
+    await db.commit()
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+async def list_sessions(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(RefreshToken)
+        .where(
+            RefreshToken.user_id == user.id,
+            RefreshToken.revoked == False,  # noqa: E712
+            RefreshToken.expires_at > datetime.utcnow(),
+        )
+        .order_by(RefreshToken.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def revoke_session(
+    session_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.id == session_id,
+            RefreshToken.user_id == user.id,
+        )
+    )
+    token = result.scalar_one_or_none()
+    if token:
+        token.revoked = True
+        await db.commit()
+
+
+@router.delete("/sessions", status_code=204)
+async def revoke_all_sessions(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user.id,
+            RefreshToken.revoked == False,  # noqa: E712
+        )
+    )
+    for token in result.scalars().all():
+        token.revoked = True
     await db.commit()
 
 

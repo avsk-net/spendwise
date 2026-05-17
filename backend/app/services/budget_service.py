@@ -79,6 +79,13 @@ async def check_budget(
     notif = Notification(user_id=user_id, type=notif_type, message=message)
     db.add(notif)
 
+    try:
+        from app.workers.notifications.tasks import send_budget_alert_email
+
+        send_budget_alert_email.delay(str(user_id), notif_type.value, message)
+    except Exception:
+        pass
+
     return {
         "id": str(notif.id),
         "type": notif_type.value,

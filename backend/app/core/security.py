@@ -52,3 +52,22 @@ def _hash_token(raw: str) -> str:
 
 def hash_token(raw: str) -> str:
     return _hash_token(raw)
+
+
+def create_mfa_token(user_id: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=5)
+    return jwt.encode(
+        {"sub": user_id, "exp": expire, "type": "mfa"},
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
+
+def decode_mfa_token(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "mfa":
+            return None
+        return payload.get("sub")
+    except Exception:
+        return None

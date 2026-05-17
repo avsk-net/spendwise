@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import (
     create_access_token,
+    create_mfa_token,
     create_refresh_token,
+    decode_mfa_token,
     hash_password,
     verify_password,
 )
@@ -28,6 +30,7 @@ from app.schemas.user import (
     AccessTokenResponse,
     ForgotPasswordRequest,
     MessageResponse,
+    MFAVerifyRequest,
     RefreshRequest,
     ResetPasswordRequest,
     SessionResponse,
@@ -108,6 +111,19 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
         await db.commit()
         raise InvalidCredentialsError()
 
+    if user.totp_enabled and user.totp_secret:
+        mfa_tok = create_mfa_token(str(user.id))
+        db.add(
+            AuditLog(
+                user_id=user.id,
+                action=AuditAction.LOGIN_FAILED,
+                ip_address=request.client.host if request.client else None,
+                new_value={"mfa_challenge": True},
+            )
+        )
+        await db.commit()
+        return TokenResponse(requires_2fa=True, mfa_token=mfa_tok)
+
     raw_refresh, token_hash, expires_at = create_refresh_token()
     await RefreshTokenRepository(db).save(
         RefreshToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
@@ -121,6 +137,40 @@ async def login(request: Request, data: UserLogin, db: AsyncSession = Depends(ge
     )
     await db.commit()
 
+    return TokenResponse(access_token=create_access_token(str(user.id)), refresh_token=raw_refresh)
+
+
+@router.post("/2fa/verify", response_model=TokenResponse)
+async def verify_2fa(request: Request, data: MFAVerifyRequest, db: AsyncSession = Depends(get_db)):
+    import pyotp
+
+    user_id = decode_mfa_token(data.mfa_token)
+    if not user_id:
+        raise InvalidTokenError("MFA session expired or invalid")
+
+    from sqlalchemy import select as _select
+
+    result = await db.execute(_select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or not user.totp_enabled or not user.totp_secret:
+        raise InvalidCredentialsError()
+
+    totp = pyotp.TOTP(user.totp_secret)
+    if not totp.verify(data.code, valid_window=1):
+        raise InvalidCredentialsError()
+
+    raw_refresh, token_hash, expires_at = create_refresh_token()
+    await RefreshTokenRepository(db).save(
+        RefreshToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+    )
+    db.add(
+        AuditLog(
+            user_id=user.id,
+            action=AuditAction.LOGIN,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+    await db.commit()
     return TokenResponse(access_token=create_access_token(str(user.id)), refresh_token=raw_refresh)
 
 

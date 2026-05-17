@@ -10,6 +10,7 @@ celery = Celery(
     include=[
         "app.workers.recurring.tasks",
         "app.workers.emails.tasks",
+        "app.workers.notifications.tasks",
     ],
 )
 

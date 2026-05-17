@@ -74,3 +74,7 @@ class TransactionFilters(BaseModel):
     search: Optional[str] = None
     page: int = 1
     limit: int = 50
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[uuid.UUID]

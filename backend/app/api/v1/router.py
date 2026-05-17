@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     categories,
     categorization_rules,
     debts,
+    media,
     notepad,
     notifications,
     recurring,
@@ -39,3 +40,4 @@ v1_router.include_router(websocket.router)
 v1_router.include_router(saving_goals.router)
 v1_router.include_router(categorization_rules.router)
 v1_router.include_router(debts.router)
+v1_router.include_router(media.router)

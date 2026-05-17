@@ -11,6 +11,7 @@ from app.exceptions.business import SystemCategoryError
 from app.models.category import Category
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from app.services.seed import seed_categories_for_user
 
 
 class CategoryTreeNode(CategoryResponse):
@@ -61,7 +62,20 @@ async def list_categories(
         )
         .limit(limit)
     )
-    return result.scalars().all()
+    cats = result.scalars().all()
+    if not cats:
+        await seed_categories_for_user(user.id, db)
+        await db.commit()
+        result = await db.execute(
+            select(Category)
+            .where(
+                Category.user_id == user.id,
+                Category.deleted_at.is_(None),
+            )
+            .limit(limit)
+        )
+        cats = result.scalars().all()
+    return cats
 
 
 @router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)

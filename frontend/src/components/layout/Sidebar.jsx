@@ -34,7 +34,9 @@ export default function Sidebar({ open, onClose }) {
   const handleNavClick = () => { if (onClose) onClose() }
 
   const avatarUrl = user?.avatar_url
-    ? (user.avatar_url.startsWith("http") ? user.avatar_url : `${import.meta.env.VITE_API_BASE_URL || ""}${user.avatar_url}`)
+    ? user.avatar_url.startsWith("http")
+      ? user.avatar_url
+      : `${import.meta.env.VITE_API_BASE_URL || ""}/api/v1/media/${user.avatar_url.replace(/^\/media\//, "")}`
     : null
 
   return (

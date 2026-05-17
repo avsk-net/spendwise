@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Users, Activity, TrendingUp, ShieldCheck,
@@ -13,6 +13,19 @@ import toast from "react-hot-toast"
 import { adminApi } from "../api/adminApi"
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+function adminAvatarUrl(url) {
+  if (!url) return null
+  if (url.startsWith("http")) return url
+  return `/api/v1/media/${url.replace(/^\/media\//, "")}`
+}
+
+function countryFlag(code) {
+  if (!code || code.length !== 2) return ""
+  return String.fromCodePoint(
+    ...code.toUpperCase().split("").map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
+  )
+}
 
 function timeAgo(dateStr) {
   if (!dateStr) return "Never"
@@ -86,6 +99,25 @@ function UserDetailPanel({ userId, onClose }) {
     enabled: !!userId,
   })
 
+  const [geoMap, setGeoMap] = useState({})
+
+  useEffect(() => {
+    if (!detail?.recent_logins?.length) return
+    const ips = [...new Set(detail.recent_logins.map((l) => l.ip).filter(Boolean))]
+    Promise.all(
+      ips.map((ip) =>
+        fetch(`https://ipwho.is/${ip}`)
+          .then((r) => r.json())
+          .then((d) => (d.success ? [ip, d] : null))
+          .catch(() => null)
+      )
+    ).then((results) => {
+      const map = {}
+      results.forEach((r) => { if (r) map[r[0]] = r[1] })
+      setGeoMap(map)
+    })
+  }, [detail])
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -105,8 +137,11 @@ function UserDetailPanel({ userId, onClose }) {
           <div className="p-6 space-y-6">
             {/* Profile */}
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 font-bold text-xl shrink-0">
-                {detail.username?.[0]?.toUpperCase()}
+              <div className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 font-bold text-xl shrink-0 overflow-hidden">
+                {adminAvatarUrl(detail.avatar_url)
+                  ? <img src={adminAvatarUrl(detail.avatar_url)} alt="" className="w-full h-full object-cover" />
+                  : detail.username?.[0]?.toUpperCase()
+                }
               </div>
               <div>
                 <p className="font-semibold text-gray-800 dark:text-white text-lg">{detail.username}</p>
@@ -169,12 +204,22 @@ function UserDetailPanel({ userId, onClose }) {
                   Recent Logins
                 </h3>
                 <div className="space-y-2">
-                  {detail.recent_logins.map((login, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
-                      <span className="text-gray-600 dark:text-gray-300">{timeAgo(login.at)}</span>
-                      <span className="text-gray-400 font-mono">{login.ip || "—"}</span>
-                    </div>
-                  ))}
+                  {detail.recent_logins.map((login, i) => {
+                    const geo = geoMap[login.ip]
+                    return (
+                      <div key={i} className="text-xs bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600 dark:text-gray-300">{timeAgo(login.at)}</span>
+                          <span className="text-gray-400 font-mono">{login.ip || "—"}</span>
+                        </div>
+                        {geo && (
+                          <p className="text-gray-400">
+                            {countryFlag(geo.country_code)} {geo.city}, {geo.country}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -203,8 +248,8 @@ function EditableRow({ user, onSave, onDelete, onForceLogout, onViewDetail }) {
         <div className="flex items-center gap-2.5">
           <div className="relative shrink-0">
             <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-              {user.avatar_url
-                ? <img src={user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+              {adminAvatarUrl(user.avatar_url)
+                ? <img src={adminAvatarUrl(user.avatar_url)} alt="" className="w-8 h-8 rounded-full object-cover" />
                 : <span className="text-primary-600 text-xs font-bold">{user.username?.[0]?.toUpperCase()}</span>
               }
             </div>

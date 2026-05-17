@@ -72,7 +72,9 @@ export default function SettingsPage() {
   const [pwError, setPwError] = useState("")
 
   const avatarUrl = user?.avatar_url
-    ? (user.avatar_url.startsWith("http") ? user.avatar_url : `${import.meta.env.VITE_API_BASE_URL || ""}${user.avatar_url}`)
+    ? user.avatar_url.startsWith("http")
+      ? user.avatar_url
+      : `${import.meta.env.VITE_API_BASE_URL || ""}/api/v1/media/${user.avatar_url.replace(/^\/media\//, "")}`
     : null
 
   const { mutate: saveProfile, isPending: savingProfile } = useMutation({

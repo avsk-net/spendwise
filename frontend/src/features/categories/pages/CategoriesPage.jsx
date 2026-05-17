@@ -141,6 +141,33 @@ function CategoryModal({ category, parentId, categories, onClose }) {
   )
 }
 
+function ConfirmDeleteBtn({ onConfirm }) {
+  const [confirming, setConfirming] = useState(false)
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => { onConfirm(); setConfirming(false) }}
+          className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors">
+          Yes
+        </button>
+        <button
+          onClick={() => setConfirming(false)}
+          className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-600 dark:text-gray-300 text-xs transition-colors">
+          No
+        </button>
+      </div>
+    )
+  }
+  return (
+    <button
+      onClick={() => setConfirming(true)}
+      className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+      <Trash2 size={13} />
+    </button>
+  )
+}
+
 function CategoryRow({ cat, subcats, onEdit, onDelete, onAddSub }) {
   const [expanded, setExpanded] = useState(false)
   const isSystem = cat.is_system
@@ -185,11 +212,7 @@ function CategoryRow({ cat, subcats, onEdit, onDelete, onAddSub }) {
                 className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition-colors">
                 <Pencil size={13} />
               </button>
-              <button
-                onClick={() => { if (window.confirm(`Delete "${cat.name}"?`)) onDelete(cat.id) }}
-                className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                <Trash2 size={13} />
-              </button>
+              <ConfirmDeleteBtn onConfirm={() => onDelete(cat.id)} />
             </>
           )}
         </div>
@@ -204,11 +227,7 @@ function CategoryRow({ cat, subcats, onEdit, onDelete, onAddSub }) {
               <button onClick={() => onEdit(sub)} className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition-colors">
                 <Pencil size={13} />
               </button>
-              <button
-                onClick={() => { if (window.confirm(`Delete "${sub.name}"?`)) onDelete(sub.id) }}
-                className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                <Trash2 size={13} />
-              </button>
+              <ConfirmDeleteBtn onConfirm={() => onDelete(sub.id)} />
             </div>
           )}
         </div>
@@ -230,6 +249,15 @@ function CategoriesTab({ categories, onEdit, onAddSub, onDelete }) {
     const label = p.type === "income" ? "Income" : p.type === "expense" ? "Expense" : "Both"
     groups[label].push(p)
   })
+
+  if (Object.values(groups).every(g => g.length === 0)) {
+    return (
+      <div className="text-center py-16 text-gray-400 text-sm">
+        <Tag size={40} className="mx-auto mb-3 opacity-30" />
+        No categories yet. Click &ldquo;+ New Category&rdquo; to add one.
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -445,11 +473,7 @@ function RulesTab({ categories }) {
                         className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition-colors">
                         <Pencil size={13} />
                       </button>
-                      <button
-                        onClick={() => { if (window.confirm("Delete this rule?")) deleteRule(rule.id) }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                        <Trash2 size={13} />
-                      </button>
+                      <ConfirmDeleteBtn onConfirm={() => deleteRule(rule.id)} />
                     </div>
                   </div>
                 )}

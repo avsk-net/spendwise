@@ -62,6 +62,9 @@ class User(Base):
     categorization_rules: Mapped[list["CategorizationRule"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    notepad_entries: Mapped[list["NotepadEntry"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class RefreshToken(Base):

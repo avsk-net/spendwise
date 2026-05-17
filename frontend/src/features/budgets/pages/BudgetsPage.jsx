@@ -15,7 +15,7 @@ export default function BudgetsPage() {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
   )
   const [modal, setModal] = useState(false)
-  const [form, setForm] = useState({ category_id: "", amount: "" })
+  const [form, setForm] = useState({ category_id: "", amount: "", rollover: false })
 
   const { data: budgets = [], isLoading } = useQuery({
     queryKey: ["budgets", selectedMonth],
@@ -42,7 +42,7 @@ export default function BudgetsPage() {
       qc.invalidateQueries({ queryKey: ["budgets"] })
       toast.success("Budget set")
       setModal(false)
-      setForm({ category_id: "", amount: "" })
+      setForm({ category_id: "", amount: "", rollover: false })
     },
     onError: (e) => toast.error(e.response?.data?.message || "Failed"),
   })
@@ -57,7 +57,7 @@ export default function BudgetsPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    create({ ...form, amount: parseFloat(form.amount), month: selectedMonth })
+    create({ ...form, amount: parseFloat(form.amount), rollover: form.rollover, month: selectedMonth })
   }
 
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
@@ -143,6 +143,11 @@ export default function BudgetsPage() {
                       <p className="text-xs text-gray-400">
                         {left >= 0 ? `${c} ${left.toFixed(0)} remaining` : `${c} ${Math.abs(left).toFixed(0)} over budget`}
                       </p>
+                      {b.rollover_amount > 0 && (
+                        <span className="text-xs text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">
+                          +{c} {parseFloat(b.rollover_amount).toFixed(2)} rollover
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -175,7 +180,7 @@ export default function BudgetsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
               <h2 className="font-semibold text-gray-800 dark:text-white">Set Budget</h2>
-              <button onClick={() => setModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+              <button onClick={() => { setModal(false); setForm({ category_id: "", amount: "", rollover: false }) }} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-4 space-y-3">
               {availableCategories.length === 0 ? (
@@ -199,8 +204,13 @@ export default function BudgetsPage() {
                     value={form.amount}
                     onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
 
+                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={form.rollover} onChange={e => setForm(f => ({ ...f, rollover: e.target.checked }))} className="rounded" />
+                    Roll over unused amount to next month
+                  </label>
+
                   <div className="flex gap-3 pt-2">
-                    <button type="button" onClick={() => setModal(false)}
+                    <button type="button" onClick={() => { setModal(false); setForm({ category_id: "", amount: "", rollover: false }) }}
                       className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
                       Cancel
                     </button>

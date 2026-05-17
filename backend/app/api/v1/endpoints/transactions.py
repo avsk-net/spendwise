@@ -4,9 +4,9 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -47,16 +47,7 @@ async def _get_account(account_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSessi
     return account
 
 
-@router.get("", response_model=list[TransactionResponse])
-async def list_transactions(
-    filters: TransactionFilters = Depends(),
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    query = select(Transaction).where(
-        Transaction.user_id == user.id,
-        Transaction.deleted_at.is_(None),
-    )
+def _apply_filters(query, filters: TransactionFilters):  # type: ignore[no-untyped-def]
     if filters.account_id:
         query = query.where(Transaction.account_id == filters.account_id)
     if filters.category_id:
@@ -69,6 +60,28 @@ async def list_transactions(
         query = query.where(Transaction.date <= filters.date_to)
     if filters.tag:
         query = query.where(Transaction.tags.contains([filters.tag]))
+    if filters.search:
+        s = f"%{filters.search}%"
+        query = query.where(
+            or_(
+                Transaction.notes.ilike(s),
+                func.array_to_string(Transaction.tags, ",").ilike(s),
+            )
+        )
+    return query
+
+
+@router.get("", response_model=list[TransactionResponse])
+async def list_transactions(
+    filters: TransactionFilters = Depends(),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    query = select(Transaction).where(
+        Transaction.user_id == user.id,
+        Transaction.deleted_at.is_(None),
+    )
+    query = _apply_filters(query, filters)
     query = (
         query.order_by(Transaction.date.desc())
         .offset((filters.page - 1) * filters.limit)
@@ -88,18 +101,7 @@ async def export_transactions_csv(
         Transaction.user_id == user.id,
         Transaction.deleted_at.is_(None),
     )
-    if filters.account_id:
-        query = query.where(Transaction.account_id == filters.account_id)
-    if filters.category_id:
-        query = query.where(Transaction.category_id == filters.category_id)
-    if filters.type:
-        query = query.where(Transaction.type == filters.type)
-    if filters.date_from:
-        query = query.where(Transaction.date >= filters.date_from)
-    if filters.date_to:
-        query = query.where(Transaction.date <= filters.date_to)
-    if filters.tag:
-        query = query.where(Transaction.tags.contains([filters.tag]))
+    query = _apply_filters(query, filters)
     query = query.order_by(Transaction.date.desc())
 
     txns = (await db.execute(query)).scalars().all()
@@ -141,6 +143,113 @@ async def export_transactions_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.get("/tags", response_model=list[str])
+async def list_tags(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from sqlalchemy import func as sqlfunc
+
+    result = await db.execute(
+        select(sqlfunc.unnest(Transaction.tags).label("tag"))
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.deleted_at.is_(None),
+            Transaction.tags.isnot(None),
+        )
+        .distinct()
+        .order_by("tag")
+    )
+    return [row[0] for row in result.all() if row[0]]
+
+
+@router.post("/import/csv")
+async def import_transactions_csv(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Import transactions from a CSV matching the export format.
+    Columns: Date, Type, Category, Account, Amount, Notes, Tags
+    Returns { imported: int, errors: [{ row: int, reason: str }] }
+    """
+    import datetime as dt
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    accs_result = await db.execute(select(Account).where(Account.user_id == user.id))
+    accs = {a.name.lower(): a for a in accs_result.scalars().all()}
+
+    cats_result = await db.execute(
+        select(Category).where(Category.user_id == user.id, Category.deleted_at.is_(None))
+    )
+    cats_raw = cats_result.scalars().all()
+    # index by name, and by "icon name" format used in export (e.g. "🍔 Food")
+    cats: dict = {}
+    for c in cats_raw:
+        cats[c.name.lower()] = c
+        if c.icon:
+            cats[f"{c.icon} {c.name}".lower()] = c
+
+    imported = 0
+    errors: list = []
+
+    for i, row in enumerate(reader, start=2):
+        try:
+            raw_date = (row.get("Date") or "").strip()
+            raw_type = (row.get("Type") or "").strip().lower()
+            raw_amount = (row.get("Amount") or "").strip()
+            raw_acc = (row.get("Account") or "").strip()
+            raw_cat = (row.get("Category") or "").strip()
+            raw_notes = (row.get("Notes") or "").strip() or None
+            raw_tags = [t.strip() for t in (row.get("Tags") or "").split(",") if t.strip()]
+
+            if not raw_date or not raw_type or not raw_amount:
+                errors.append({"row": i, "reason": "Missing required field (Date/Type/Amount)"})
+                continue
+
+            date_val = dt.date.fromisoformat(raw_date)
+            type_val = TransactionType(raw_type)
+            amount_val = Decimal(raw_amount)
+
+            acc = accs.get(raw_acc.lower())
+            if not acc:
+                errors.append({"row": i, "reason": f"Account '{raw_acc}' not found"})
+                continue
+
+            cat = cats.get(raw_cat.lower())
+            if not cat and type_val != TransactionType.transfer:
+                errors.append({"row": i, "reason": f"Category '{raw_cat}' not found"})
+                continue
+
+            txn = Transaction(
+                user_id=user.id,
+                account_id=acc.id,
+                category_id=cat.id if cat else None,
+                type=type_val,
+                amount=amount_val,
+                date=date_val,
+                notes=raw_notes,
+                tags=raw_tags or None,
+            )
+            db.add(txn)
+            acc.balance += _delta(type_val, amount_val)
+            imported += 1
+        except Exception as exc:
+            errors.append({"row": i, "reason": str(exc)})
+
+    if imported:
+        await db.commit()
+
+    return {"imported": imported, "errors": errors}
 
 
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)

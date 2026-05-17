@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     categories,
     categorization_rules,
     debts,
+    notepad,
     notifications,
     recurring,
     reports,
@@ -28,6 +29,7 @@ v1_router.include_router(templates.router)
 v1_router.include_router(budgets.router)
 v1_router.include_router(recurring.router)
 v1_router.include_router(reports.router)
+v1_router.include_router(notepad.router)
 v1_router.include_router(notifications.router)
 v1_router.include_router(websocket.router)
 v1_router.include_router(saving_goals.router)

@@ -6,6 +6,7 @@ from app.models.categorization_rule import CategorizationRule
 from app.models.category import Category
 from app.models.debt import Debt, DebtPayment
 from app.models.email_token import EmailToken
+from app.models.notepad_entry import NotepadEntry
 from app.models.notification import Notification
 from app.models.recurring import RecurringRule
 from app.models.saving_goal import SavingGoal

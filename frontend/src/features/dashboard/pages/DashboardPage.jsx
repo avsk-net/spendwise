@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 import { useAuthStore } from "../../../store/authStore"
 import { accountsApi } from "../../accounts/api/accountsApi"
 import { reportsApi } from "../../reports/api/reportsApi"
@@ -11,17 +12,20 @@ import {
   PieChart, Pie, Cell, CartesianGrid
 } from "recharts"
 import { TrendingUp, TrendingDown, Wallet, Activity } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
 const COLORS = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#ec4899"]
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
+  const navigate = useNavigate()
   const c = user?.currency || ""
   const today = new Date()
+  const [onboardDismissed, setOnboardDismissed] = useState(false)
+  const [onboardStep, setOnboardStep] = useState(1)
   const monthStart = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`
   const todayStr = today.toISOString().split("T")[0]
-  const { data: accounts = [] } = useQuery({
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => accountsApi.list().then(r => r.data),
   })
@@ -46,7 +50,7 @@ export default function DashboardPage() {
     queryFn: () => budgetsApi.list(monthStart).then(r => r.data),
   })
 
-  const { data: recent = [] } = useQuery({
+  const { data: recent = [], isLoading: recentLoading } = useQuery({
     queryKey: ["transactions", "recent"],
     queryFn: () => transactionsApi.list({ page: 1, limit: 8 }).then(r => r.data),
   })
@@ -55,6 +59,9 @@ export default function DashboardPage() {
     queryKey: ["categories"],
     queryFn: () => txApi.categories().then(r => r.data),
   })
+
+  const showOnboarding = !onboardDismissed && !accountsLoading && !recentLoading
+    && accounts.length === 0 && recent.length === 0
 
   const totalBalance = accounts.reduce((s, a) => s + parseFloat(a.balance || 0), 0)
   const income  = parseFloat(summary?.total_income  || 0)
@@ -203,6 +210,79 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding wizard */}
+      {showOnboarding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+            <button onClick={() => setOnboardDismissed(true)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+
+            {onboardStep === 1 && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Welcome to SpendWise 👋</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Let&apos;s get you set up in 3 quick steps so you can start tracking your finances.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setOnboardDismissed(true)}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+                    Skip for now
+                  </button>
+                  <button onClick={() => setOnboardStep(2)}
+                    className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors">
+                    Get Started →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {onboardStep === 2 && (
+              <div className="space-y-4">
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Step 1 of 2</p>
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Add your first account</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Accounts represent your bank accounts, wallets, or cash. Every transaction needs an account.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setOnboardStep(1)}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+                    ← Back
+                  </button>
+                  <button onClick={() => { setOnboardDismissed(true); navigate("/accounts") }}
+                    className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors">
+                    Go to Accounts →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {onboardStep === 3 && (
+              <div className="space-y-4">
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Step 2 of 2</p>
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">Log your first transaction</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Record income, expenses, and transfers between accounts.
+                </p>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setOnboardStep(2)}
+                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+                    ← Back
+                  </button>
+                  <button onClick={() => { setOnboardDismissed(true); navigate("/transactions") }}
+                    className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors">
+                    Go to Transactions →
+                  </button>
+                </div>
+                <button onClick={() => setOnboardDismissed(true)}
+                  className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

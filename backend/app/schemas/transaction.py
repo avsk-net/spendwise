@@ -71,5 +71,6 @@ class TransactionFilters(BaseModel):
     date_from: Optional[date] = None
     date_to: Optional[date] = None
     tag: Optional[str] = None
+    search: Optional[str] = None
     page: int = 1
     limit: int = 50

@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -18,6 +19,24 @@ from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 router = APIRouter(prefix="/budgets", tags=["budgets"])
 
 
+async def _compute_spent(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    category_id: uuid.UUID,
+    month: date,
+) -> Decimal:
+    result = await db.execute(
+        select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            Transaction.user_id == user_id,
+            Transaction.category_id == category_id,
+            Transaction.type == TransactionType.expense,
+            Transaction.deleted_at.is_(None),
+            func.date_trunc("month", Transaction.date) == month,
+        )
+    )
+    return result.scalar()  # type: ignore[return-value]
+
+
 @router.get("", response_model=list[BudgetResponse])
 async def list_budgets(
     month: date = Query(default=None),
@@ -30,27 +49,40 @@ async def list_budgets(
     )
     budgets = result.scalars().all()
 
+    # Compute previous month using stdlib only
+    prev_month = (month - datetime.timedelta(days=1)).replace(day=1)
+
     response = []
     for b in budgets:
-        spent_result = await db.execute(
-            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-                Transaction.user_id == user.id,
-                Transaction.category_id == b.category_id,
-                Transaction.type == TransactionType.expense,
-                Transaction.deleted_at.is_(None),
-                func.date_trunc("month", Transaction.date) == month,
+        spent: Decimal = await _compute_spent(db, user.id, b.category_id, month)
+        rollover_amt = Decimal("0")
+
+        if b.rollover:
+            prev_result = await db.execute(
+                select(Budget).where(
+                    Budget.user_id == user.id,
+                    Budget.category_id == b.category_id,
+                    Budget.month == prev_month,
+                )
             )
-        )
-        spent: Decimal = spent_result.scalar()
-        percent = float(spent / b.amount * 100) if b.amount > 0 else 0.0
+            prev_budget = prev_result.scalar_one_or_none()
+            if prev_budget:
+                prev_spent: Decimal = await _compute_spent(db, user.id, b.category_id, prev_month)
+                unused = max(Decimal("0"), prev_budget.amount - prev_spent)
+                rollover_amt = unused
+
+        effective_amount = b.amount + rollover_amt
+        percent = float(spent / effective_amount * 100) if effective_amount > 0 else 0.0
         response.append(
             BudgetResponse(
                 id=b.id,
                 category_id=b.category_id,
                 month=b.month,
-                amount=b.amount,
+                amount=effective_amount,
                 spent=spent,
                 percent=percent,
+                rollover=b.rollover,
+                rollover_amount=rollover_amt,
             )
         )
     return response
@@ -76,6 +108,7 @@ async def create_budget(
         category_id=budget.category_id,
         month=budget.month,
         amount=budget.amount,
+        rollover=budget.rollover,
     )
 
 
@@ -93,12 +126,15 @@ async def update_budget(
     if not budget:
         raise BudgetNotFoundError()
     budget.amount = data.amount
+    if data.rollover is not None:
+        budget.rollover = data.rollover
     await db.commit()
     return BudgetResponse(
         id=budget.id,
         category_id=budget.category_id,
         month=budget.month,
         amount=budget.amount,
+        rollover=budget.rollover,
     )
 
 

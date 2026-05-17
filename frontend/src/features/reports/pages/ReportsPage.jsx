@@ -22,26 +22,27 @@ export default function ReportsPage() {
   const { user } = useAuthStore()
   const c = user?.currency || ""
   const today = new Date()
-  const [year, setYear] = useState(today.getFullYear())
+  const todayStr = today.toISOString().split("T")[0]
+  const [dateFrom, setDateFrom] = useState(`${today.getFullYear()}-01-01`)
+  const [dateTo, setDateTo] = useState(todayStr)
   const [month, setMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
   )
-  const yearStart = `${year}-01-01`
-  const yearEnd   = `${year}-12-31`
+  const year = new Date(dateFrom).getFullYear()
 
   const { data: summary } = useQuery({
-    queryKey: ["rep-summary", year],
-    queryFn: () => reportsApi.summary({ date_from: yearStart, date_to: yearEnd }).then(r => r.data),
+    queryKey: ["rep-summary", dateFrom, dateTo],
+    queryFn: () => reportsApi.summary({ date_from: dateFrom, date_to: dateTo }).then(r => r.data),
   })
 
   const { data: monthly = [] } = useQuery({
-    queryKey: ["rep-monthly", year],
+    queryKey: ["rep-monthly", dateFrom, dateTo],
     queryFn: () => reportsApi.monthly({ year }).then(r => r.data),
   })
 
   const { data: pie = [] } = useQuery({
-    queryKey: ["rep-pie", year],
-    queryFn: () => reportsApi.byCategory({ date_from: yearStart, date_to: yearEnd }).then(r => r.data),
+    queryKey: ["rep-pie", dateFrom, dateTo],
+    queryFn: () => reportsApi.byCategory({ date_from: dateFrom, date_to: dateTo }).then(r => r.data),
   })
 
   const { data: daily = [] } = useQuery({
@@ -92,22 +93,25 @@ export default function ReportsPage() {
     }
   })
 
-  const yearOptions = [today.getFullYear() - 2, today.getFullYear() - 1, today.getFullYear()]
-
   return (
     <div className="space-y-6">
-      {/* Year selector */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-gray-500">Year:</label>
-        <div className="flex gap-2">
-          {yearOptions.map(y => (
-            <button key={y} onClick={() => setYear(y)}
-              className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-colors ${
-                year === y
-                  ? "bg-primary-600 text-white"
-                  : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-              }`}>
-              {y}
+      {/* Date range selector */}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-sm text-gray-500">From:</label>
+        <input type="date" className="border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+        <label className="text-sm text-gray-500">To:</label>
+        <input type="date" className="border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          value={dateTo} onChange={e => setDateTo(e.target.value)} />
+        <div className="flex gap-2 ml-auto">
+          {[
+            { label: "This month", from: `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`, to: todayStr },
+            { label: "This year", from: `${today.getFullYear()}-01-01`, to: todayStr },
+            { label: "Last year", from: `${today.getFullYear()-1}-01-01`, to: `${today.getFullYear()-1}-12-31` },
+          ].map(({ label, from, to }) => (
+            <button key={label} onClick={() => { setDateFrom(from); setDateTo(to) }}
+              className="px-3 py-1.5 border border-gray-200 text-gray-600 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl text-xs font-medium transition-colors">
+              {label}
             </button>
           ))}
         </div>
@@ -134,7 +138,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Monthly overview */}
-      <Card title={`Monthly Income vs Expense — ${year}`}>
+      <Card title={`Monthly Income vs Expense — ${dateFrom} to ${dateTo}`}>
         {monthlyChartData.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data</div>
         ) : (
@@ -156,7 +160,7 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Spending by category */}
-        <Card title={`Spending by Category — ${year}`}>
+        <Card title={`Spending by Category — ${dateFrom} to ${dateTo}`}>
           {pieData.length === 0 ? (
             <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data</div>
           ) : (
@@ -227,7 +231,7 @@ export default function ReportsPage() {
 
       {/* Category breakdown table */}
       {pie.length > 0 && (
-        <Card title={`Category Breakdown — ${year}`}>
+        <Card title={`Category Breakdown — ${dateFrom} to ${dateTo}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">

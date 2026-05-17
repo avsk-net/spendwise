@@ -4,7 +4,7 @@ import datetime
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Numeric, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Numeric, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,7 @@ class Budget(Base, SoftDeleteMixin):
     )
     month: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    rollover: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="budgets")
     category: Mapped["Category"] = relationship(back_populates="budgets")

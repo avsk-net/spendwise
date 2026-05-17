@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Pencil, Trash2, Download, Bookmark, X, Star } from "lucide-react"
+import { Plus, Pencil, Trash2, Download, Upload, Bookmark, X, Star } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { transactionsApi } from "../api/transactionsApi"
 import { templatesApi } from "../api/templatesApi"
@@ -25,6 +25,10 @@ export default function TransactionsPage() {
   const [filters, setFilters] = useState({ page: 1, limit: 20 })
   const [presets, setPresets] = useState(loadPresets)
   const [exporting, setExporting] = useState(false)
+  const [importModal, setImportModal] = useState(false)
+  const [importFile, setImportFile] = useState(null)
+  const [importResult, setImportResult] = useState(null)
+  const [importing, setImporting] = useState(false)
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -46,12 +50,34 @@ export default function TransactionsPage() {
     queryFn: () => templatesApi.list().then(r => r.data),
   })
 
+  const { data: tags = [] } = useQuery({
+    queryKey: ["transaction-tags"],
+    queryFn: () => transactionsApi.tags().then(r => r.data),
+  })
+
   const catMap = Object.fromEntries(categories.map(cat => [cat.id, cat]))
   const accMap = Object.fromEntries(accounts.map(a => [a.id, a]))
   const filteredCats = categories.filter(cat => cat.type === "both" || cat.type === form.type)
 
-  const hasFilters = filters.type || filters.account_id || filters.category_id || filters.date_from || filters.date_to
+  const hasFilters = filters.type || filters.account_id || filters.category_id || filters.date_from || filters.date_to || filters.search || filters.tag
   const clearFilters = () => setFilters({ page: 1, limit: 20 })
+
+  const handleImport = async (e) => {
+    e.preventDefault()
+    if (!importFile) return
+    setImporting(true)
+    try {
+      const res = await transactionsApi.importCsv(importFile)
+      setImportResult(res.data)
+      qc.invalidateQueries({ queryKey: ["transactions"] })
+      qc.invalidateQueries({ queryKey: ["accounts"] })
+      toast.success(`Imported ${res.data.imported} transactions`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Import failed")
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const savePreset = () => {
     const name = window.prompt("Name this filter view:")
@@ -191,6 +217,15 @@ export default function TransactionsPage() {
 
       {/* Filter + action bar */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-3 space-y-2">
+        {/* Search row */}
+        <input
+          type="text"
+          placeholder="Search notes or tags…"
+          className={`w-full ${inputCls}`}
+          value={filters.search || ""}
+          onChange={e => setFilters(f => ({ ...f, search: e.target.value || undefined, page: 1 }))}
+        />
+
         {/* Row 1: dropdowns + export + add */}
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="flex flex-wrap gap-2">
@@ -218,6 +253,11 @@ export default function TransactionsPage() {
             </select>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => { setImportModal(true); setImportResult(null); setImportFile(null) }}
+              className="flex items-center gap-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium px-3 py-2 rounded-xl transition-colors">
+              <Upload size={14} />
+              <span className="hidden sm:inline">Import CSV</span>
+            </button>
             <button onClick={handleExport} disabled={exporting}
               className="flex items-center gap-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium px-3 py-2 rounded-xl disabled:opacity-60 transition-colors">
               <Download size={14} />
@@ -253,6 +293,24 @@ export default function TransactionsPage() {
             </>
           )}
         </div>
+
+        {/* Tag pills */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-xs text-gray-400 self-center">Tags:</span>
+            {tags.map(tag => (
+              <button key={tag}
+                onClick={() => setFilters(f => ({ ...f, tag: f.tag === tag ? undefined : tag, page: 1 }))}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  filters.tag === tag
+                    ? "bg-primary-600 text-white border-primary-600"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-primary-400 hover:text-primary-600"
+                }`}>
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Saved presets */}
         {presets.length > 0 && (
@@ -404,6 +462,60 @@ export default function TransactionsPage() {
           </button>
         </div>
       </div>
+
+      {/* Import CSV modal */}
+      {importModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-800 dark:text-white">Import CSV</h2>
+              <button onClick={() => setImportModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {!importResult ? (
+                <form onSubmit={handleImport} className="space-y-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    CSV must have columns: <span className="font-mono">date, amount, type, account_id, notes (optional), tags (optional)</span>
+                  </p>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    required
+                    className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/20 dark:file:text-primary-400"
+                    onChange={e => setImportFile(e.target.files[0] || null)}
+                  />
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setImportModal(false)}
+                      className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                      Cancel
+                    </button>
+                    <button type="submit" disabled={importing || !importFile}
+                      className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
+                      {importing ? "Importing…" : "Import"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-green-600">Imported {importResult.imported} transactions</p>
+                  {importResult.errors && importResult.errors.length > 0 && (
+                    <div>
+                      <p className="text-xs text-red-500 font-medium mb-1">Errors ({importResult.errors.length}):</p>
+                      <ul className="text-xs text-red-400 space-y-0.5 max-h-40 overflow-y-auto">
+                        {importResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  <button onClick={() => setImportModal(false)}
+                    className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors">
+                    Done
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create / Edit modal */}
       {modal && (

@@ -38,7 +38,7 @@ async def client(db: AsyncSession):
 async def auth_client(client: AsyncClient):
     """Returns (client, tokens) with a registered user already logged in."""
     r = await client.post(
-        "/api/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "fixture@example.com",
             "username": "fixtureuser",

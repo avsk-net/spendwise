@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, useEffect } from "react"
 import { useAuthStore } from "./store/authStore"
+import { useThemeStore } from "./store/themeStore"
 import ErrorBoundary from "./components/ErrorBoundary"
 import CookieBanner from "./components/CookieBanner"
 import DashboardLayout from "./layouts/DashboardLayout"
@@ -47,6 +48,9 @@ function Spinner() {
 }
 
 export default function App() {
+  const initTheme = useThemeStore((s) => s.initTheme)
+  useEffect(() => { initTheme() }, [initTheme])
+
   return (
     <ErrorBoundary>
       <BrowserRouter>

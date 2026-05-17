@@ -16,6 +16,7 @@ export default function BudgetsPage() {
   )
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ category_id: "", amount: "", rollover: false })
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null)
 
   const { data: budgets = [], isLoading } = useQuery({
     queryKey: ["budgets", selectedMonth],
@@ -152,10 +153,23 @@ export default function BudgetsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`text-sm font-bold ${textColor}`}>{pct.toFixed(0)}%</span>
-                    <button onClick={() => { if (window.confirm("Remove budget?")) remove(b.id) }}
-                      className="text-gray-300 hover:text-red-400 transition-colors">
-                      <Trash2 size={15} />
-                    </button>
+                    {confirmRemoveId === b.id ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { remove(b.id); setConfirmRemoveId(null) }}
+                          className="px-2 py-0.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors">
+                          Remove
+                        </button>
+                        <button onClick={() => setConfirmRemoveId(null)}
+                          className="px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-600 dark:text-gray-300 text-xs transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmRemoveId(b.id)}
+                        className="text-gray-300 hover:text-red-400 transition-colors">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
 

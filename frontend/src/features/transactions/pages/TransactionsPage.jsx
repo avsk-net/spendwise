@@ -31,6 +31,8 @@ export default function TransactionsPage() {
   const [importing, setImporting] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [confirmBulk, setConfirmBulk] = useState(false)
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -189,7 +191,6 @@ export default function TransactionsPage() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return
-    if (!window.confirm(`Delete ${selectedIds.size} transaction(s)?`)) return
     setBulkDeleting(true)
     try {
       await transactionsApi.bulkDelete([...selectedIds])
@@ -373,12 +374,25 @@ export default function TransactionsPage() {
           <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
             {selectedIds.size} selected
           </span>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {confirmBulk ? (
+              <>
+                <span className="text-xs text-gray-600 dark:text-gray-300">Delete {selectedIds.size} transaction(s)?</span>
+                <button onClick={() => { setConfirmBulk(false); handleBulkDelete() }}
+                  className="text-xs font-medium bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+                  Confirm
+                </button>
+                <button onClick={() => setConfirmBulk(false)}
+                  className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-lg transition-colors">
+                  Cancel
+                </button>
+              </>
+            ) : null}
             <button onClick={() => setSelectedIds(new Set())}
               className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-lg transition-colors">
               Clear
             </button>
-            <button onClick={handleBulkDelete} disabled={bulkDeleting}
+            <button onClick={() => setConfirmBulk(true)} disabled={bulkDeleting}
               className="flex items-center gap-1.5 text-xs font-medium bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-60 transition-colors">
               <Trash2 size={13} />{bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
             </button>
@@ -427,10 +441,23 @@ export default function TransactionsPage() {
                       className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg transition-colors">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => { if (window.confirm("Delete this transaction?")) remove(t.id) }}
-                      className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
-                      <Trash2 size={14} />
-                    </button>
+                    {confirmDeleteId === t.id ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { remove(t.id); setConfirmDeleteId(null) }}
+                          className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors">
+                          Delete
+                        </button>
+                        <button onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-600 text-xs transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(t.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
                 {t.notes && <p className="text-xs text-gray-400 mt-2 ml-10 truncate">{t.notes}</p>}
@@ -495,10 +522,23 @@ export default function TransactionsPage() {
                             className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
                             <Pencil size={14} />
                           </button>
-                          <button onClick={() => { if (window.confirm("Delete this transaction?")) remove(t.id) }}
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 size={14} />
-                          </button>
+                          {confirmDeleteId === t.id ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => { remove(t.id); setConfirmDeleteId(null) }}
+                                className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors">
+                                Delete
+                              </button>
+                              <button onClick={() => setConfirmDeleteId(null)}
+                                className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-gray-600 text-xs transition-colors">
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmDeleteId(t.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

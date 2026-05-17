@@ -1,6 +1,11 @@
 from datetime import date
 
 
+def _safe(text: str) -> str:
+    """Strip characters outside Latin-1 so fpdf2 Helvetica doesn't raise."""
+    return text.encode("latin-1", errors="ignore").decode("latin-1")
+
+
 def generate_report_pdf(
     username: str,
     currency: str,
@@ -28,12 +33,12 @@ def generate_report_pdf(
     pdf.cell(0, 10, "SpendWise", ln=True)
     pdf.set_font("Helvetica", "", 11)
     pdf.set_xy(15, 20)
-    pdf.cell(0, 8, f"Financial Report — {date_from} to {date_to}", ln=True)
+    pdf.cell(0, 8, f"Financial Report - {date_from} to {date_to}", ln=True)
 
     pdf.set_xy(15, 42)
     pdf.set_text_color(30, 30, 30)
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, f"Prepared for: {username}", ln=True)
+    pdf.cell(0, 6, _safe(f"Prepared for: {username}"), ln=True)
 
     # Summary cards
     pdf.ln(6)
@@ -99,7 +104,7 @@ def generate_report_pdf(
             pdf.set_text_color(30, 30, 30)
             fill = i % 2 == 0
             pdf.set_fill_color(250, 251, 252)
-            name = f"{cat.get('icon', '')} {cat['category_name']}"
+            name = _safe(cat["category_name"])
             pdf.cell(90, 7, name[:38], fill=fill)
             pdf.cell(40, 7, f"{currency} {float(cat['total']):,.2f}", fill=fill, align="R")
             pdf.cell(35, 7, f"{float(cat['percent']):.1f}%", fill=fill, align="R")

@@ -30,6 +30,7 @@ function StatCard({ icon: Icon, label, value, color }) {
 function EditableRow({ user, onSave, onDelete, onForceLogout }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ username: user.username, is_active: user.is_active })
+  const [confirmType, setConfirmType] = useState(null) // 'delete' | 'logout'
 
   const save = () => { onSave(user.id, form); setEditing(false) }
 
@@ -92,22 +93,37 @@ function EditableRow({ user, onSave, onDelete, onForceLogout }) {
           ) : (
             <>
               {!user.is_superadmin && (
-                <>
-                  <button onClick={() => setEditing(true)} title="Edit"
-                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
-                    <Edit2 size={13} />
-                  </button>
-                  <button onClick={() => { if (window.confirm(`Force logout ${user.username}?`)) onForceLogout(user.id) }}
-                    title="Force logout"
-                    className="p-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-gray-400 hover:text-orange-500 transition-colors">
-                    <LogOut size={13} />
-                  </button>
-                  <button onClick={() => { if (window.confirm(`Delete user ${user.username}? This is permanent.`)) onDelete(user.id) }}
-                    title="Delete"
-                    className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
-                    <Trash2 size={13} />
-                  </button>
-                </>
+                confirmType ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {confirmType === "delete" ? "Delete user?" : "Force logout?"}
+                    </span>
+                    <button
+                      onClick={() => { confirmType === "delete" ? onDelete(user.id) : onForceLogout(user.id); setConfirmType(null) }}
+                      className="px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors">
+                      Confirm
+                    </button>
+                    <button onClick={() => setConfirmType(null)}
+                      className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => setEditing(true)} title="Edit"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 transition-colors">
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => setConfirmType("logout")} title="Force logout"
+                      className="p-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 text-gray-400 hover:text-orange-500 transition-colors">
+                      <LogOut size={13} />
+                    </button>
+                    <button onClick={() => setConfirmType("delete")} title="Delete"
+                      className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )
               )}
               {user.is_superadmin && (
                 <span className="flex items-center gap-1 text-xs text-indigo-500">

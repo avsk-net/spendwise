@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Camera, CheckCircle, Lock, Mail, Monitor,
+  Camera, CheckCircle, Copy, Lock, Mail, Monitor,
   Settings2, ShieldAlert, ShieldCheck, Trash2, User, X,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
@@ -63,6 +63,9 @@ export default function SettingsPage() {
 
   const [tab, setTab] = useState("profile")
   const fileRef = useRef(null)
+  const [setupData, setSetupData] = useState(null)
+  const [qrCodeUrl, setQrCodeUrl] = useState(null)
+  const [totpCode, setTotpCode] = useState("")
 
   const [profile, setProfile] = useState({ username: user?.username || "" })
   const [pw, setPw] = useState({ current_password: "", new_password: "", confirm_password: "" })
@@ -117,6 +120,43 @@ export default function SettingsPage() {
   const { mutate: revokeAllSessions } = useMutation({
     mutationFn: () => apiClient.delete("/auth/sessions"),
     onSuccess: () => { toast.success("All sessions revoked"); logout(); navigate("/login") },
+  })
+
+  const { mutate: initSetup2fa, isPending: settingUp2fa } = useMutation({
+    mutationFn: () => apiClient.post("/users/me/2fa/setup"),
+    onSuccess: async ({ data }) => {
+      setSetupData(data)
+      try {
+        const QRCode = await import("qrcode")
+        const url = await QRCode.default.toDataURL(data.provisioning_uri)
+        setQrCodeUrl(url)
+      } catch {
+        setQrCodeUrl(null)
+      }
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Failed"),
+  })
+
+  const { mutate: enable2fa, isPending: enabling2fa } = useMutation({
+    mutationFn: (data) => apiClient.post("/users/me/2fa/enable", data),
+    onSuccess: ({ data }) => {
+      setUser(data)
+      setSetupData(null)
+      setQrCodeUrl(null)
+      setTotpCode("")
+      toast.success("2FA enabled successfully")
+      qc.invalidateQueries({ queryKey: ["me"] })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Invalid code"),
+  })
+
+  const { mutate: disable2fa, isPending: disabling2fa } = useMutation({
+    mutationFn: () => apiClient.delete("/users/me/2fa"),
+    onSuccess: ({ data }) => {
+      setUser(data)
+      toast.success("2FA disabled")
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Failed"),
   })
 
   const { mutate: deleteAccount, isPending: deleting } = useMutation({
@@ -299,6 +339,89 @@ export default function SettingsPage() {
                   </div>
                 )
               }
+            </div>
+          </Card>
+
+          {/* ── 2FA Card ── */}
+          <Card>
+            <CardHeader icon={ShieldCheck} label="Two-Factor Authentication" />
+            <div className="px-6 py-5">
+              {user?.totp_enabled ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                    <ShieldCheck size={18} className="text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-green-700 dark:text-green-400">2FA is enabled</p>
+                      <p className="text-xs text-green-600 dark:text-green-500">Your account is protected with TOTP authentication</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { if (window.confirm("Disable 2FA? Your account will be less secure.")) disable2fa() }}
+                    disabled={disabling2fa}
+                    className="flex items-center gap-2 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+                    {disabling2fa ? "Disabling…" : "Disable 2FA"}
+                  </button>
+                </div>
+              ) : setupData ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), or enter the secret key manually.
+                  </p>
+                  {qrCodeUrl && (
+                    <div className="flex justify-center">
+                      <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48 border border-gray-200 dark:border-gray-600 rounded-xl p-2 bg-white" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block font-medium">Secret Key (manual entry)</label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs font-mono px-3 py-2 rounded-lg break-all">{setupData.secret}</code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(setupData.secret); toast.success("Copied!") }}
+                        className="shrink-0 p-2 text-gray-400 hover:text-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg transition-colors">
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block font-medium">Verification Code</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="Enter 6-digit code"
+                        value={totpCode}
+                        onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        className="flex-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                      <button
+                        onClick={() => enable2fa({ code: totpCode, secret: setupData.secret })}
+                        disabled={enabling2fa || totpCode.length < 6}
+                        className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+                        {enabling2fa ? "Enabling…" : "Enable"}
+                      </button>
+                    </div>
+                  </div>
+                  <button onClick={() => { setSetupData(null); setQrCodeUrl(null); setTotpCode("") }}
+                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Add an extra layer of security to your account using a time-based one-time password (TOTP) app.
+                  </p>
+                  <button
+                    onClick={() => initSetup2fa()}
+                    disabled={settingUp2fa}
+                    className="flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+                    <ShieldCheck size={15} />
+                    {settingUp2fa ? "Loading…" : "Set up 2FA"}
+                  </button>
+                </div>
+              )}
             </div>
           </Card>
         </>

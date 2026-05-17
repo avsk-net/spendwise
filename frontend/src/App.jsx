@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { lazy, Suspense } from "react"
 import { useAuthStore } from "./store/authStore"
 import ErrorBoundary from "./components/ErrorBoundary"
+import CookieBanner from "./components/CookieBanner"
 import DashboardLayout from "./layouts/DashboardLayout"
 import LoginPage from "./features/auth/pages/LoginPage"
 import RegisterPage from "./features/auth/pages/RegisterPage"
@@ -21,6 +22,9 @@ const DebtPage         = lazy(() => import("./features/debts/pages/DebtPage"))
 const CategoriesPage   = lazy(() => import("./features/categories/pages/CategoriesPage"))
 const NotepadPage      = lazy(() => import("./features/notepad/pages/NotepadPage"))
 const AdminPage        = lazy(() => import("./features/admin/pages/AdminPage"))
+const NotFoundPage     = lazy(() => import("./pages/NotFoundPage"))
+const PrivacyPage      = lazy(() => import("./features/legal/PrivacyPage"))
+const TermsPage        = lazy(() => import("./features/legal/TermsPage"))
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore()
@@ -52,6 +56,8 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/privacy" element={<Suspense fallback={<Spinner />}><PrivacyPage /></Suspense>} />
+          <Route path="/terms"   element={<Suspense fallback={<Spinner />}><TermsPage /></Suspense>} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route element={
             <ProtectedRoute>
@@ -77,8 +83,10 @@ export default function App() {
           }>
             <Route index element={<Suspense fallback={<Spinner />}><AdminPage /></Suspense>} />
           </Route>
+          <Route path="*" element={<Suspense fallback={<Spinner />}><NotFoundPage /></Suspense>} />
         </Routes>
       </BrowserRouter>
+      <CookieBanner />
     </ErrorBoundary>
   )
 }

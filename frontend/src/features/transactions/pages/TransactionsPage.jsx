@@ -29,6 +29,8 @@ export default function TransactionsPage() {
   const [importFile, setImportFile] = useState(null)
   const [importResult, setImportResult] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -185,6 +187,39 @@ export default function TransactionsPage() {
     }))
   }
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!window.confirm(`Delete ${selectedIds.size} transaction(s)?`)) return
+    setBulkDeleting(true)
+    try {
+      await transactionsApi.bulkDelete([...selectedIds])
+      qc.invalidateQueries({ queryKey: ["transactions"] })
+      qc.invalidateQueries({ queryKey: ["accounts"] })
+      setSelectedIds(new Set())
+      toast.success(`Deleted ${selectedIds.size} transactions`)
+    } catch {
+      toast.error("Bulk delete failed")
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === txns.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(txns.map(t => t.id)))
+    }
+  }
+
   const openCreate = () => { setForm(EMPTY_FORM); setModal("create") }
   const openEdit = (t) => {
     setForm({
@@ -332,6 +367,25 @@ export default function TransactionsPage() {
         )}
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-2xl px-4 py-2.5">
+          <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex gap-2">
+            <button onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 dark:border-gray-600 px-3 py-1.5 rounded-lg transition-colors">
+              Clear
+            </button>
+            <button onClick={handleBulkDelete} disabled={bulkDeleting}
+              className="flex items-center gap-1.5 text-xs font-medium bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-60 transition-colors">
+              <Trash2 size={13} />{bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Loading / empty */}
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -390,6 +444,11 @@ export default function TransactionsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-xs uppercase">
                   <tr>
+                    <th className="px-4 py-3 w-8">
+                      <input type="checkbox" className="rounded"
+                        checked={txns.length > 0 && selectedIds.size === txns.length}
+                        onChange={toggleSelectAll} />
+                    </th>
                     {["Date","Category","Account","Type","Amount","Notes",""].map(h => (
                       <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
                     ))}
@@ -398,6 +457,11 @@ export default function TransactionsPage() {
                 <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                   {txns.map(t => (
                     <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-4 py-3 w-8">
+                        <input type="checkbox" className="rounded"
+                          checked={selectedIds.has(t.id)}
+                          onChange={() => toggleSelect(t.id)} />
+                      </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">{t.date}</td>
                       <td className="px-4 py-3">
                         <span className="flex items-center gap-1.5">

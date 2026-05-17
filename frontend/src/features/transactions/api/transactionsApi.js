@@ -9,4 +9,5 @@ export const transactionsApi = {
   createCategory: (data)   => apiClient.post("/categories", data),
   tags:           ()       => apiClient.get("/transactions/tags"),
   importCsv:      (file)   => { const fd = new FormData(); fd.append("file", file); return apiClient.post("/transactions/import/csv", fd) },
+  bulkDelete:     (ids)    => apiClient.post("/transactions/bulk-delete", { ids }),
 }

@@ -2,6 +2,8 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useAuthStore } from "../../../store/authStore"
 import { reportsApi } from "../api/reportsApi"
+import { Download } from "lucide-react"
+import toast from "react-hot-toast"
 import {
   ComposedChart, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend
@@ -29,6 +31,28 @@ export default function ReportsPage() {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
   )
   const year = new Date(dateFrom).getFullYear()
+
+  const [exportingPdf, setExportingPdf] = useState(false)
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true)
+    try {
+      const res = await reportsApi.exportPdf({ date_from: dateFrom, date_to: dateTo })
+      const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `spendwise_report_${dateFrom}_${dateTo}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success("Report exported")
+    } catch {
+      toast.error("Export failed")
+    } finally {
+      setExportingPdf(false)
+    }
+  }
 
   const { data: summary } = useQuery({
     queryKey: ["rep-summary", dateFrom, dateTo],
@@ -114,6 +138,11 @@ export default function ReportsPage() {
               {label}
             </button>
           ))}
+          <button onClick={handleExportPdf} disabled={exportingPdf}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-medium disabled:opacity-60 transition-colors">
+            <Download size={13} />
+            {exportingPdf ? "Exporting…" : "Export PDF"}
+          </button>
         </div>
       </div>
 

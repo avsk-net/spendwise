@@ -6,4 +6,5 @@ export const reportsApi = {
   monthly:    (params) => apiClient.get("/reports/monthly", { params }),
   trend:      (months) => apiClient.get("/reports/trend", { params: { months } }),
   netWorth:   () => apiClient.get("/reports/net-worth"),
+  exportPdf:  (params) => apiClient.get("/reports/export/pdf", { params, responseType: "blob" }),
 }

@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     email_reports_enabled: bool
     is_email_verified: bool
     totp_enabled: bool = False
+    last_active_at: Optional[datetime] = None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -56,6 +57,10 @@ class AdminStatsResponse(BaseModel):
     active_sessions: int
     signups_last_7_days: int
     signups_last_30_days: int
+    active_today: int
+    active_7_days: int
+    verified_users: int
+    two_fa_users: int
 
 
 class UserUpdate(BaseModel):
@@ -137,3 +142,40 @@ class TOTPVerifyRequest(BaseModel):
 class MFAVerifyRequest(BaseModel):
     mfa_token: str
     code: str
+
+
+class UserGrowthPoint(BaseModel):
+    week: str
+    count: int
+
+
+class ActivityLogEntry(BaseModel):
+    id: str
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    action: str
+    ip_address: Optional[str] = None
+    created_at: datetime
+
+
+class RecentLogin(BaseModel):
+    at: datetime
+    ip: Optional[str] = None
+
+
+class AdminUserDetail(BaseModel):
+    id: str
+    username: str
+    email: str
+    currency: str
+    avatar_url: Optional[str] = None
+    is_active: bool
+    is_superadmin: bool
+    is_email_verified: bool
+    totp_enabled: bool
+    created_at: datetime
+    last_active_at: Optional[datetime] = None
+    login_count: int
+    session_count: int
+    recent_logins: list[RecentLogin]

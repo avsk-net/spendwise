@@ -106,15 +106,14 @@ async def user_growth(
     result = await db.execute(
         select(
             func.date_trunc(literal_column("'week'"), User.created_at).label("week"),
-            func.count().label("count"),
+            func.count().label("n"),
         )
         .where(User.created_at >= since)
         .group_by(func.date_trunc(literal_column("'week'"), User.created_at))
         .order_by(func.date_trunc(literal_column("'week'"), User.created_at))
     )
     return [
-        UserGrowthPoint(week=row.week.strftime("%Y-%m-%d"), count=int(row.count))
-        for row in result.all()
+        UserGrowthPoint(week=row.week.strftime("%Y-%m-%d"), count=row.n) for row in result.all()
     ]
 
 

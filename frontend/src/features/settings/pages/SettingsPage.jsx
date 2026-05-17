@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Bell, Camera, CheckCircle, Lock, Mail, Monitor,
+  Camera, CheckCircle, Lock, Mail, Monitor,
   Settings2, ShieldAlert, ShieldCheck, Trash2, User, X,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"

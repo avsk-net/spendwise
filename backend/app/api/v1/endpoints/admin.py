@@ -43,15 +43,11 @@ async def stats(
     since_30 = now - timedelta(days=30)
 
     signups_7 = (
-        await db.execute(
-            select(func.count()).select_from(User).where(User.created_at >= since_7)
-        )
+        await db.execute(select(func.count()).select_from(User).where(User.created_at >= since_7))
     ).scalar() or 0
 
     signups_30 = (
-        await db.execute(
-            select(func.count()).select_from(User).where(User.created_at >= since_30)
-        )
+        await db.execute(select(func.count()).select_from(User).where(User.created_at >= since_30))
     ).scalar() or 0
 
     return AdminStatsResponse(

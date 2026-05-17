@@ -47,7 +47,11 @@ async def upload_avatar(
     if len(data) > _MAX_AVATAR_BYTES:
         raise ValidationError("File must be under 5 MB", "FILE_TOO_LARGE")
 
-    ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "jpg"
+    ext = (
+        file.filename.rsplit(".", 1)[-1].lower()
+        if file.filename and "." in file.filename
+        else "jpg"
+    )
     avatars_dir = os.path.join(settings.MEDIA_DIR, "avatars")
     os.makedirs(avatars_dir, exist_ok=True)
 

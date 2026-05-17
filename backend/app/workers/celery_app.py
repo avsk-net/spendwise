@@ -11,6 +11,7 @@ celery = Celery(
         "app.workers.recurring.tasks",
         "app.workers.emails.tasks",
         "app.workers.notifications.tasks",
+        "app.workers.notifications.deadline_tasks",
     ],
 )
 
@@ -30,6 +31,10 @@ celery.conf.update(
         "monthly-email-reports": {
             "task": "app.workers.emails.tasks.send_monthly_reports",
             "schedule": crontab(hour=8, minute=0, day_of_month=1),
+        },
+        "check-goals-debts-daily": {
+            "task": "app.workers.notifications.deadline_tasks.check_goals_and_debts",
+            "schedule": crontab(hour=8, minute=30),
         },
     },
 )

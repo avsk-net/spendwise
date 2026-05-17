@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2, RefreshCw, Calendar, Pause, Play } from "lucide-react"
+import { Plus, Trash2, RefreshCw, Calendar, Pause, Play, Pencil } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { recurringApi } from "../api/recurringApi"
 import { transactionsApi } from "../../transactions/api/transactionsApi"
@@ -39,6 +39,8 @@ export default function RecurringPage() {
   const c = user?.currency || ""
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [editRule, setEditRule] = useState(null)
+  const [editForm, setEditForm] = useState(EMPTY_FORM)
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ["recurring"],
@@ -70,6 +72,16 @@ export default function RecurringPage() {
     onError: (e) => toast.error(e.response?.data?.message || "Failed"),
   })
 
+  const { mutate: update, isPending: isUpdating } = useMutation({
+    mutationFn: ({ id, data }) => recurringApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recurring"] })
+      toast.success("Rule updated")
+      setEditRule(null)
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Failed to update"),
+  })
+
   const { mutate: toggle } = useMutation({
     mutationFn: ({ id, is_active }) => recurringApi.update(id, { is_active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring"] }),
@@ -91,6 +103,25 @@ export default function RecurringPage() {
       end_date: form.end_date || null,
     }
     create(data)
+  }
+
+  const handleEdit = (rule) => {
+    setEditRule(rule)
+    setEditForm({
+      type: rule.type,
+      account_id: rule.account_id,
+      category_id: rule.category_id,
+      amount: String(rule.amount),
+      frequency: rule.frequency,
+      start_date: rule.start_date,
+      end_date: rule.end_date || "",
+      notes: rule.notes || "",
+    })
+  }
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    update({ id: editRule.id, data: { ...editForm, amount: parseFloat(editForm.amount), end_date: editForm.end_date || null } })
   }
 
   const activeRules   = rules.filter(r => r.is_active)
@@ -196,6 +227,12 @@ export default function RecurringPage() {
                       {r.type === "income" ? "+" : "-"}{c} {parseFloat(r.amount).toFixed(2)}
                     </p>
                     <button
+                      onClick={() => handleEdit(r)}
+                      className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      title="Edit">
+                      <Pencil size={15} />
+                    </button>
+                    <button
                       onClick={() => toggle({ id: r.id, is_active: !r.is_active })}
                       className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                       title={r.is_active ? "Pause" : "Resume"}>
@@ -214,7 +251,7 @@ export default function RecurringPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
@@ -293,6 +330,92 @@ export default function RecurringPage() {
                 <button type="submit" disabled={isPending}
                   className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
                   {isPending ? "Saving…" : "Create Rule"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editRule !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-800 dark:text-white">Edit Recurring Rule</h2>
+              <button onClick={() => setEditRule(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="px-6 py-4 space-y-3">
+              <div className="flex gap-2">
+                {["income", "expense"].map(type => (
+                  <button key={type} type="button"
+                    onClick={() => setEditForm(f => ({ ...f, type }))}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                      editForm.type === type
+                        ? type === "income" ? "bg-green-500 text-white border-green-500" : "bg-red-500 text-white border-red-500"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              <input type="number" step="0.01" placeholder="Amount" required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.amount} onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))} />
+
+              <select required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.account_id} onChange={e => setEditForm(f => ({ ...f, account_id: e.target.value }))}>
+                <option value="">Select account</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+
+              <select required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.category_id} onChange={e => setEditForm(f => ({ ...f, category_id: e.target.value }))}>
+                <option value="">Select category</option>
+                {categories.filter(cat => cat.type === "both" || cat.type === editForm.type).map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                ))}
+              </select>
+
+              <select
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.frequency} onChange={e => setEditForm(f => ({ ...f, frequency: e.target.value }))}>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
+                  <input type="date" required
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    value={editForm.start_date} onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">End Date (optional)</label>
+                  <input type="date"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    value={editForm.end_date} onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))} />
+                </div>
+              </div>
+
+              <input type="text" placeholder="Notes (optional)"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} />
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditRule(null)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isUpdating}
+                  className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
+                  {isUpdating ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>

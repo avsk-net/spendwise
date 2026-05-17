@@ -1,4 +1,5 @@
-from datetime import date
+import calendar
+from datetime import date, timedelta
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
@@ -11,17 +12,24 @@ from app.dependencies import get_current_user
 from app.enums.debt_type import DebtStatus
 from app.enums.transaction_type import TransactionType
 from app.models.account import Account
+from app.models.budget import Budget
 from app.models.category import Category
 from app.models.debt import Debt
+from app.models.recurring import RecurringRule
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.report import (
+    BudgetForecast,
+    BudgetVsActualItem,
     CategoryBreakdown,
     DailyTotal,
+    InsightsResponse,
+    MoMChange,
     MonthlyTotal,
     NetWorthResponse,
     SummaryResponse,
     TrendPoint,
+    UpcomingRecurring,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -228,6 +236,196 @@ async def net_worth(
         total_assets=total_assets,
         total_liabilities=total_liabilities,
     )
+
+
+@router.get("/insights", response_model=InsightsResponse)
+async def insights(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    today = date.today()
+    month_start = today.replace(day=1)
+    days_in_month = calendar.monthrange(today.year, today.month)[1]
+    days_elapsed = today.day
+
+    # Last month boundaries
+    last_month_end = month_start - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+
+    # --- MoM changes ---
+    async def _category_totals(d_from: date, d_to: date) -> dict:
+        result = await db.execute(
+            select(
+                Category.id,
+                Category.name,
+                Category.icon,
+                func.coalesce(func.sum(Transaction.amount), 0).label("total"),
+            )
+            .join(Transaction, Transaction.category_id == Category.id)
+            .where(
+                Transaction.user_id == user.id,
+                Transaction.date >= d_from,
+                Transaction.date <= d_to,
+                Transaction.type == TransactionType.expense,
+                Transaction.deleted_at.is_(None),
+            )
+            .group_by(Category.id, Category.name, Category.icon)
+        )
+        return {str(r.id): r for r in result.all()}
+
+    this_month_cats = await _category_totals(month_start, today)
+    last_month_cats = await _category_totals(last_month_start, last_month_end)
+
+    all_cat_ids = set(this_month_cats.keys()) | set(last_month_cats.keys())
+    mom_changes: list[MoMChange] = []
+    for cid in all_cat_ids:
+        this_row = this_month_cats.get(cid)
+        last_row = last_month_cats.get(cid)
+        this_val = float(this_row.total) if this_row else 0.0
+        last_val = float(last_row.total) if last_row else 0.0
+        if last_val == 0 and this_val == 0:
+            continue
+        change_pct = ((this_val - last_val) / last_val * 100) if last_val != 0 else 100.0
+        if abs(change_pct) < 5:
+            continue
+        row = this_row or last_row
+        assert row is not None
+        mom_changes.append(
+            MoMChange(
+                category_name=row.name,
+                icon=row.icon,
+                this_month=this_val,
+                last_month=last_val,
+                change_pct=round(change_pct, 2),
+            )
+        )
+    mom_changes.sort(key=lambda x: abs(x.change_pct), reverse=True)
+
+    # --- Budget forecasts ---
+    budgets_result = await db.execute(
+        select(Budget, Category)
+        .join(Category, Category.id == Budget.category_id)
+        .where(
+            Budget.user_id == user.id,
+            Budget.month == month_start,
+            Budget.deleted_at.is_(None),
+        )
+    )
+    budget_rows = budgets_result.all()
+
+    budget_forecasts: list[BudgetForecast] = []
+    for budget, category in budget_rows:
+        spent_result = await db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.user_id == user.id,
+                Transaction.category_id == budget.category_id,
+                Transaction.date >= month_start,
+                Transaction.date <= today,
+                Transaction.type == TransactionType.expense,
+                Transaction.deleted_at.is_(None),
+            )
+        )
+        actual = float(spent_result.scalar() or 0)
+        forecast = (actual / days_elapsed) * days_in_month if days_elapsed > 0 else 0.0
+        budget_amount = float(budget.amount)
+        if forecast <= budget_amount:
+            continue
+        overage_pct = (forecast - budget_amount) / budget_amount * 100 if budget_amount else 0.0
+        budget_forecasts.append(
+            BudgetForecast(
+                category_name=category.name,
+                icon=category.icon,
+                budget=budget_amount,
+                actual=actual,
+                forecast=round(forecast, 2),
+                overage_pct=round(overage_pct, 2),
+            )
+        )
+
+    # --- Upcoming recurring ---
+    window_end = today + timedelta(days=7)
+    recurring_result = await db.execute(
+        select(RecurringRule, Category)
+        .join(Category, Category.id == RecurringRule.category_id)
+        .where(
+            RecurringRule.user_id == user.id,
+            RecurringRule.is_active.is_(True),
+            RecurringRule.deleted_at.is_(None),
+            RecurringRule.next_run_date >= today,
+            RecurringRule.next_run_date <= window_end,
+        )
+        .order_by(RecurringRule.next_run_date)
+    )
+    upcoming_recurring: list[UpcomingRecurring] = [
+        UpcomingRecurring(
+            label=rule.notes,
+            amount=float(rule.amount),
+            type=rule.type.value,
+            frequency=rule.frequency.value,
+            next_run_date=rule.next_run_date.strftime("%Y-%m-%d"),
+            category_name=cat.name,
+            icon=cat.icon,
+        )
+        for rule, cat in recurring_result.all()
+    ]
+
+    return InsightsResponse(
+        mom_changes=mom_changes,
+        budget_forecasts=budget_forecasts,
+        upcoming_recurring=upcoming_recurring,
+    )
+
+
+@router.get("/budget-vs-actual", response_model=list[BudgetVsActualItem])
+async def budget_vs_actual(
+    month: date = Query(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    month_start = month.replace(day=1)
+    days_in_month = calendar.monthrange(month_start.year, month_start.month)[1]
+    month_end = month_start.replace(day=days_in_month)
+
+    budgets_result = await db.execute(
+        select(Budget, Category)
+        .join(Category, Category.id == Budget.category_id)
+        .where(
+            Budget.user_id == user.id,
+            Budget.month == month_start,
+            Budget.deleted_at.is_(None),
+        )
+    )
+    budget_rows = budgets_result.all()
+
+    items: list[BudgetVsActualItem] = []
+    for budget, category in budget_rows:
+        spent_result = await db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.user_id == user.id,
+                Transaction.category_id == budget.category_id,
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.type == TransactionType.expense,
+                Transaction.deleted_at.is_(None),
+            )
+        )
+        actual = Decimal(str(spent_result.scalar() or 0))
+        budget_amount = budget.amount
+        remaining = budget_amount - actual
+        percent_used = float(actual / budget_amount * 100) if budget_amount else 0.0
+        items.append(
+            BudgetVsActualItem(
+                category_id=str(budget.category_id),
+                category_name=category.name,
+                icon=category.icon,
+                budget_amount=budget_amount,
+                actual_amount=actual,
+                remaining=remaining,
+                percent_used=round(percent_used, 2),
+            )
+        )
+
+    return items
 
 
 @router.get("/export/pdf")

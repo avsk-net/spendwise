@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid
 } from "recharts"
-import { TrendingUp, TrendingDown, Wallet, Activity } from "lucide-react"
+import { TrendingUp, TrendingDown, Wallet, Activity, RefreshCw } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 const COLORS = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#ec4899"]
@@ -63,6 +63,12 @@ export default function DashboardPage() {
   const { data: netWorth } = useQuery({
     queryKey: ["net-worth"],
     queryFn: () => import("../../reports/api/reportsApi").then(m => m.reportsApi.netWorth().then(r => r.data)),
+  })
+
+  const { data: insights } = useQuery({
+    queryKey: ["insights"],
+    queryFn: () => reportsApi.insights().then(r => r.data),
+    staleTime: 5 * 60 * 1000,
   })
 
   const showOnboarding = !onboardDismissed && !accountsLoading && !recentLoading
@@ -241,6 +247,123 @@ export default function DashboardPage() {
               )
             })}
           </div>
+        </div>
+      </div>
+
+      {/* Smart Insights */}
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold text-gray-700 dark:text-gray-200">Smart Insights</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* A. Upcoming Bills */}
+          <div className="bg-white dark:bg-gray-800/50 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Upcoming Bills (Next 7 Days)</h3>
+            {(insights?.upcoming_recurring || []).length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">No bills due in the next 7 days</p>
+            ) : (
+              <div className="space-y-3">
+                {(insights.upcoming_recurring).map((bill, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="shrink-0 w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                        <RefreshCw size={13} className="text-blue-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{bill.label || "Unnamed"}</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(bill.next_run_date).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                        {c} {parseFloat(bill.amount).toFixed(2)}
+                      </span>
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full capitalize">
+                        {bill.frequency}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* B. Budget Forecasts */}
+          <div className="bg-white dark:bg-gray-800/50 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Budget Forecast Warnings</h3>
+            {(insights?.budget_forecasts || []).length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">No budget forecasts available</p>
+            ) : (
+              <div className="space-y-4">
+                {(insights.budget_forecasts).map((bf, i) => {
+                  const pct = Math.min((parseFloat(bf.forecast) / parseFloat(bf.budget)) * 100, 100)
+                  const barColor = pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-400" : "bg-primary-500"
+                  return (
+                    <div key={i}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[120px]">
+                          {bf.icon} {bf.category_name}
+                        </span>
+                        {bf.overage_pct > 0 && (
+                          <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full font-medium">
+                            +{parseFloat(bf.overage_pct).toFixed(0)}% over
+                          </span>
+                        )}
+                      </div>
+                      <div className="h-1.5 bg-gray-100 dark:bg-gray-600 rounded-full overflow-hidden">
+                        <div className={`h-full ${barColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex justify-between text-xs mt-1 text-gray-400">
+                        <span>Forecasted: {c} {parseFloat(bf.forecast).toFixed(0)}</span>
+                        <span>Budget: {c} {parseFloat(bf.budget).toFixed(0)}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* C. Month-over-Month Changes */}
+          <div className="bg-white dark:bg-gray-800/50 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Spending Changes vs Last Month</h3>
+            {(insights?.mom_changes || []).length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">No comparison data yet</p>
+            ) : (
+              <div className="space-y-3">
+                {[...(insights.mom_changes)]
+                  .sort((a, b) => Math.abs(parseFloat(b.change_pct)) - Math.abs(parseFloat(a.change_pct)))
+                  .slice(0, 3)
+                  .map((ch, i) => {
+                    const pct = parseFloat(ch.change_pct)
+                    const isUp = pct >= 0
+                    return (
+                      <div key={i} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-base shrink-0">{ch.icon}</span>
+                          <p className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{ch.category_name}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 text-right">
+                          <div className="text-xs text-gray-400 leading-tight">
+                            <p>{c} {parseFloat(ch.this_month).toFixed(0)}</p>
+                            <p className="line-through">{c} {parseFloat(ch.last_month).toFixed(0)}</p>
+                          </div>
+                          <div className={`flex items-center gap-0.5 text-xs font-semibold ${isUp ? "text-red-500" : "text-green-500"}`}>
+                            {isUp
+                              ? <TrendingUp size={13} />
+                              : <TrendingDown size={13} />
+                            }
+                            {Math.abs(pct).toFixed(0)}%
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 

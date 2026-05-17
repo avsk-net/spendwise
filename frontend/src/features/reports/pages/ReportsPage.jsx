@@ -32,6 +32,11 @@ export default function ReportsPage() {
   )
   const year = new Date(dateFrom).getFullYear()
 
+  const [activeTab, setActiveTab] = useState("overview")
+  const [selectedMonth, setSelectedMonth] = useState(
+    `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
+  )
+
   const [exportingPdf, setExportingPdf] = useState(false)
 
   const handleExportPdf = async () => {
@@ -79,6 +84,12 @@ export default function ReportsPage() {
     queryFn: () => reportsApi.trend(6).then(r => r.data),
   })
 
+  const { data: bva = [] } = useQuery({
+    queryKey: ["budget-vs-actual", selectedMonth],
+    queryFn: () => reportsApi.budgetVsActual(selectedMonth).then(r => r.data),
+    enabled: activeTab === "budget-vs-actual",
+  })
+
   const income  = parseFloat(summary?.total_income  || 0)
   const expense = parseFloat(summary?.total_expense || 0)
   const net     = parseFloat(summary?.net || 0)
@@ -117,8 +128,104 @@ export default function ReportsPage() {
     }
   })
 
+  const bvaMonthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(today.getFullYear(), i, 1)
+    return {
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`,
+      label: d.toLocaleString("default", { month: "long", year: "numeric" }),
+    }
+  })
+
+  const tabs = [
+    { key: "overview", label: "Overview" },
+    { key: "budget-vs-actual", label: "Budget vs Actual" },
+  ]
+
   return (
     <div className="space-y-6">
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab.key
+                ? "border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "budget-vs-actual" && (
+        <div className="space-y-6">
+          {/* Month picker */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-500">Month:</label>
+            <select
+              className="border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}>
+              {bvaMonthOptions.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {bva.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-100 dark:border-gray-700 shadow-sm text-center">
+              <p className="text-sm text-gray-400">
+                No budgets set for this month.{" "}
+                <a href="/budgets" className="text-primary-600 hover:underline">Go to Budgets to create one.</a>
+              </p>
+            </div>
+          ) : (
+            <Card title={`Budget vs Actual — ${bvaMonthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth}`}>
+              <div className="space-y-5">
+                {bva.map((row, i) => {
+                  const budget = parseFloat(row.budget || 0)
+                  const actual = parseFloat(row.actual || 0)
+                  const remaining = budget - actual
+                  const pctUsed = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0
+                  const overBudget = actual > budget
+                  const barColor = pctUsed >= 100 ? "bg-red-500" : pctUsed >= 80 ? "bg-yellow-400" : "bg-green-500"
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between mb-1.5 gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-base shrink-0">{row.icon}</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{row.category_name}</span>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0 text-sm">
+                          <span className="text-gray-400">{c} {budget.toLocaleString("en", { minimumFractionDigits: 2 })}</span>
+                          <span className={overBudget ? "text-red-500 font-semibold" : "text-green-600 font-semibold"}>
+                            {c} {actual.toLocaleString("en", { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className={`text-xs ${remaining < 0 ? "text-red-400" : "text-gray-400"}`}>
+                            {remaining < 0
+                              ? `-${c} ${Math.abs(remaining).toLocaleString("en", { minimumFractionDigits: 2 })} over`
+                              : `${c} ${remaining.toLocaleString("en", { minimumFractionDigits: 2 })} left`
+                            }
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-gray-100 dark:bg-gray-600 rounded-full overflow-hidden">
+                        <div className={`h-full ${barColor} transition-all duration-500`} style={{ width: `${pctUsed}%` }} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5 text-right">{budget > 0 ? `${((actual / budget) * 100).toFixed(1)}% used` : "—"}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {activeTab === "overview" && <>
       {/* Date range selector */}
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm text-gray-500">From:</label>
@@ -290,6 +397,7 @@ export default function ReportsPage() {
           </div>
         </Card>
       )}
+      </>}
     </div>
   )
 }

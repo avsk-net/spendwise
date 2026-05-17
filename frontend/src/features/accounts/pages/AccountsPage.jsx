@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2, Wallet, CreditCard, Smartphone, Building2, Coins } from "lucide-react"
+import { Plus, Trash2, Wallet, CreditCard, Smartphone, Building2, Coins, Pencil, ExternalLink } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "../../../store/authStore"
 import { accountsApi } from "../api/accountsApi"
 import toast from "react-hot-toast"
@@ -26,9 +27,12 @@ const EMPTY_FORM = { name: "", type: "bank", balance: "0" }
 export default function AccountsPage() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const c = user?.currency || ""
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [editAccount, setEditAccount] = useState(null)
+  const [editForm, setEditForm] = useState({ name: "", type: "bank", balance: "0" })
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["accounts"],
@@ -46,6 +50,16 @@ export default function AccountsPage() {
     onError: (e) => toast.error(e.response?.data?.message || "Failed"),
   })
 
+  const { mutate: update, isPending: isUpdating } = useMutation({
+    mutationFn: ({ id, data }) => accountsApi.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] })
+      toast.success("Account updated")
+      setEditAccount(null)
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Failed to update"),
+  })
+
   const { mutate: remove } = useMutation({
     mutationFn: (id) => accountsApi.delete(id),
     onSuccess: () => {
@@ -59,6 +73,16 @@ export default function AccountsPage() {
   const handleSubmit = (e) => {
     e.preventDefault()
     create({ ...form, balance: parseFloat(form.balance) })
+  }
+
+  const handleEdit = (account) => {
+    setEditAccount(account)
+    setEditForm({ name: account.name, type: account.type, balance: String(account.balance) })
+  }
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    update({ id: editAccount.id, data: { ...editForm, balance: parseFloat(editForm.balance) } })
   }
 
   return (
@@ -103,11 +127,18 @@ export default function AccountsPage() {
                   <div className="bg-white/20 rounded-xl p-2">
                     <Icon size={20} className="text-white" />
                   </div>
-                  <button
-                    onClick={() => { if (window.confirm(`Remove ${a.name}?`)) remove(a.id) }}
-                    className="text-white/60 hover:text-white transition-colors">
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEdit(a)}
+                      className="text-white/60 hover:text-white transition-colors">
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => { if (window.confirm(`Remove ${a.name}?`)) remove(a.id) }}
+                      className="text-white/60 hover:text-white transition-colors">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
                 <div className="p-4">
                   <p className="font-semibold text-gray-800 dark:text-white">{a.name}</p>
@@ -115,6 +146,12 @@ export default function AccountsPage() {
                   <p className={`text-xl font-bold ${bal >= 0 ? "text-gray-900 dark:text-white" : "text-red-500"}`}>
                     {c} {bal.toLocaleString("en", { minimumFractionDigits: 2 })}
                   </p>
+                  <button
+                    onClick={() => navigate(`/transactions?account_id=${a.id}`)}
+                    className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-primary-500 transition-colors">
+                    <ExternalLink size={11} />
+                    View Transactions
+                  </button>
                 </div>
               </div>
             )
@@ -122,7 +159,7 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
@@ -160,6 +197,51 @@ export default function AccountsPage() {
                 <button type="submit" disabled={isPending}
                   className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
                   {isPending ? "Creating…" : "Create Account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editAccount !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-800 dark:text-white">Edit Account</h2>
+              <button onClick={() => setEditAccount(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="px-6 py-4 space-y-3">
+              <input type="text" placeholder="Account name (e.g. bKash, BRAC Bank)" required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+
+              <select required
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}>
+                <option value="cash">Cash</option>
+                <option value="bank">Bank</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="mobile_banking">Mobile Banking</option>
+                <option value="other">Other</option>
+              </select>
+
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Balance</label>
+                <input type="number" step="0.01" placeholder="0.00"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  value={editForm.balance} onChange={e => setEditForm(f => ({ ...f, balance: e.target.value }))} />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditAccount(null)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isUpdating}
+                  className="flex-1 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium disabled:opacity-60 transition-colors">
+                  {isUpdating ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>

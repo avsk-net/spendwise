@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Plus, Pencil, Trash2, Download, Upload, Bookmark, X, Star } from "lucide-react"
+import { useSearchParams } from "react-router-dom"
 import { useAuthStore } from "../../../store/authStore"
 import { transactionsApi } from "../api/transactionsApi"
 import { templatesApi } from "../api/templatesApi"
@@ -19,10 +20,16 @@ export default function TransactionsPage() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
   const c = user?.currency || ""
+  const [searchParams] = useSearchParams()
 
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
-  const [filters, setFilters] = useState({ page: 1, limit: 20 })
+  const [filters, setFilters] = useState(() => {
+    const init = { page: 1, limit: 20 }
+    const accountId = searchParams.get("account_id")
+    if (accountId) init.account_id = accountId
+    return init
+  })
   const [presets, setPresets] = useState(loadPresets)
   const [exporting, setExporting] = useState(false)
   const [importModal, setImportModal] = useState(false)

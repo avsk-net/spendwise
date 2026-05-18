@@ -2,9 +2,10 @@ import { NavLink, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, Target,
   RefreshCw, BarChart2, Settings, LogOut, TrendingUp, PiggyBank, X,
-  Tag, CreditCard, NotebookText, ShieldCheck,
+  Tag, CreditCard, NotebookText, ShieldCheck, Moon, Sun,
 } from "lucide-react"
 import { useAuthStore } from "../../store/authStore"
+import { useThemeStore } from "../../store/themeStore"
 import { authApi } from "../../features/auth/api/authApi"
 
 const NAV = [
@@ -23,6 +24,7 @@ const NAV = [
 
 export default function Sidebar({ open, onClose }) {
   const { user, refreshToken, logout } = useAuthStore()
+  const { theme, toggleTheme } = useThemeStore()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
@@ -105,6 +107,13 @@ export default function Sidebar({ open, onClose }) {
             <p className="text-gray-500 text-xs truncate">{user?.currency}</p>
           </div>
         </div>
+        <button onClick={toggleTheme}
+          className="flex items-center gap-3 px-3 py-2 w-full text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl text-sm transition-colors">
+          {theme === "dark"
+            ? <><Sun size={16} className="shrink-0" /> Light mode</>
+            : <><Moon size={16} className="shrink-0" /> Dark mode</>
+          }
+        </button>
         <button onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2 w-full text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-xl text-sm transition-colors">
           <LogOut size={16} className="shrink-0" /> Logout

@@ -9,4 +9,5 @@ export const reportsApi = {
   exportPdf:  (params) => apiClient.get("/reports/export/pdf", { params, responseType: "blob" }),
   insights:   () => apiClient.get("/reports/insights"),
   budgetVsActual: (month) => apiClient.get("/reports/budget-vs-actual", { params: { month } }),
+  byWeekday:      (params) => apiClient.get("/reports/by-weekday", { params }),
 }

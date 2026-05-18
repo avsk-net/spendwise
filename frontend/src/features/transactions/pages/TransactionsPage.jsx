@@ -22,6 +22,7 @@ export default function TransactionsPage() {
   const c = user?.currency || ""
   const [searchParams] = useSearchParams()
 
+  const [totalCount, setTotalCount] = useState(0)
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filters, setFilters] = useState(() => {
@@ -30,6 +31,8 @@ export default function TransactionsPage() {
     if (accountId) init.account_id = accountId
     const search = searchParams.get("search")
     if (search) init.search = search
+    const recurringRuleId = searchParams.get("recurring_rule_id")
+    if (recurringRuleId) init.recurring_rule_id = recurringRuleId
     return init
   })
   const [presets, setPresets] = useState(loadPresets)
@@ -45,7 +48,12 @@ export default function TransactionsPage() {
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["transactions", filters],
-    queryFn: () => transactionsApi.list(filters).then(r => r.data),
+    queryFn: async () => {
+      const r = await transactionsApi.list(filters)
+      const total = parseInt(r.headers?.["x-total-count"] || "0", 10)
+      setTotalCount(total)
+      return r.data
+    },
   })
 
   const { data: accounts = [] } = useQuery({
@@ -561,14 +569,18 @@ export default function TransactionsPage() {
 
       {/* Pagination */}
       <div className="flex justify-between items-center text-sm text-gray-500">
-        <span>{txns.length} shown</span>
+        <span className="text-sm text-gray-500">
+          {totalCount > 0
+            ? `Showing ${((filters.page - 1) * filters.limit) + 1}–${Math.min(filters.page * filters.limit, totalCount)} of ${totalCount}`
+            : `${txns.length} shown`}
+        </span>
         <div className="flex gap-2">
           <button disabled={filters.page === 1}
             onClick={() => setFilters(f => ({ ...f, page: f.page - 1 }))}
             className="px-3 py-1 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors">
             Previous
           </button>
-          <button disabled={txns.length < filters.limit}
+          <button disabled={filters.page * filters.limit >= totalCount || txns.length < filters.limit}
             onClick={() => setFilters(f => ({ ...f, page: f.page + 1 }))}
             className="px-3 py-1 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors">
             Next

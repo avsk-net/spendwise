@@ -68,6 +68,14 @@ export default function SettingsPage() {
   const [totpCode, setTotpCode] = useState("")
 
   const [profile, setProfile] = useState({ username: user?.username || "" })
+
+  const CURRENCIES = [
+    "USD","EUR","GBP","JPY","CAD","AUD","CHF","CNY","INR","BDT",
+    "SGD","HKD","NOK","SEK","DKK","NZD","MXN","BRL","ZAR","AED",
+    "SAR","THB","MYR","IDR","PHP","PKR","EGP","TRY","KRW","NGN",
+  ]
+
+  const [profileForm, setProfileForm] = useState({ currency: user?.currency || "USD" })
   const [pw, setPw] = useState({ current_password: "", new_password: "", confirm_password: "" })
   const [pwError, setPwError] = useState("")
 
@@ -436,9 +444,13 @@ export default function SettingsPage() {
           <div className="px-6 py-5 space-y-5">
             <div>
               <label className="text-xs text-gray-500 dark:text-gray-400 mb-1.5 block font-medium">Default Currency</label>
-              <input disabled value={user?.currency || ""}
-                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400 rounded-xl px-4 py-2.5 text-sm bg-gray-50 cursor-not-allowed" />
-              <p className="text-xs text-gray-400 mt-1">Currency is set at signup and cannot be changed</p>
+              <select
+                value={profileForm.currency || user?.currency || "USD"}
+                onChange={e => setProfileForm(f => ({ ...f, currency: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
 
             <div>
@@ -464,6 +476,11 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-400">Receive a spending summary every month</p>
               </div>
             </label>
+
+            <button onClick={() => saveProfile(profileForm)} disabled={savingProfile}
+              className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+              {savingProfile ? "Saving…" : <><CheckCircle size={15} /> Save Preferences</>}
+            </button>
           </div>
         </Card>
       )}

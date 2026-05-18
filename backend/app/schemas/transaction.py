@@ -72,6 +72,7 @@ class TransactionFilters(BaseModel):
     date_to: Optional[date] = None
     tag: Optional[str] = None
     search: Optional[str] = None
+    recurring_rule_id: Optional[uuid.UUID] = None
     page: int = 1
     limit: int = 50
 

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2, RefreshCw, Calendar, Pause, Play, Pencil } from "lucide-react"
+import { Plus, Trash2, RefreshCw, Calendar, Pause, Play, Pencil, ExternalLink } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "../../../store/authStore"
 import { recurringApi } from "../api/recurringApi"
 import { transactionsApi } from "../../transactions/api/transactionsApi"
@@ -36,6 +37,7 @@ const EMPTY_FORM = {
 export default function RecurringPage() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const c = user?.currency || ""
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -226,6 +228,13 @@ export default function RecurringPage() {
                     }`}>
                       {r.type === "income" ? "+" : "-"}{c} {parseFloat(r.amount).toFixed(2)}
                     </p>
+                    <button
+                      onClick={() => navigate(`/transactions?recurring_rule_id=${r.id}`)}
+                      title="View transactions"
+                      className="p-1.5 text-gray-400 hover:text-primary-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <ExternalLink size={15} />
+                    </button>
                     <button
                       onClick={() => handleEdit(r)}
                       className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"

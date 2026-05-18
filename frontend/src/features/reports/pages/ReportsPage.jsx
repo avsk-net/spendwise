@@ -31,6 +31,8 @@ export default function ReportsPage() {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`
   )
   const year = new Date(dateFrom).getFullYear()
+  const currentYear = today.getFullYear()
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedMonth, setSelectedMonth] = useState(
@@ -90,6 +92,12 @@ export default function ReportsPage() {
     enabled: activeTab === "budget-vs-actual",
   })
 
+  const { data: weekdayData = [] } = useQuery({
+    queryKey: ["by-weekday", dateFrom, dateTo],
+    queryFn: () => reportsApi.byWeekday({ date_from: dateFrom, date_to: dateTo }).then(r => r.data),
+    enabled: activeTab === "by-weekday",
+  })
+
   const income  = parseFloat(summary?.total_income  || 0)
   const expense = parseFloat(summary?.total_expense || 0)
   const net     = parseFloat(summary?.net || 0)
@@ -139,6 +147,7 @@ export default function ReportsPage() {
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "budget-vs-actual", label: "Budget vs Actual" },
+    { key: "by-weekday", label: "By Weekday" },
   ]
 
   return (
@@ -225,6 +234,56 @@ export default function ReportsPage() {
         </div>
       )}
 
+      {activeTab === "by-weekday" && (() => {
+        const highestDay = weekdayData.reduce((best, d) => (!best || parseFloat(d.total) > parseFloat(best.total) ? d : best), null)
+        const avgSpend = weekdayData.length > 0
+          ? weekdayData.reduce((sum, d) => sum + parseFloat(d.total), 0) / weekdayData.length
+          : 0
+        return (
+          <div className="space-y-6">
+            <Card title={`Spending by Weekday — ${dateFrom} to ${dateTo}`}>
+              {weekdayData.length === 0 ? (
+                <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data</div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={weekdayData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v) => [`${c} ${parseFloat(v).toFixed(2)}`, "Spending"]} />
+                      <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                        {weekdayData.map((entry, index) => (
+                          <Cell
+                            key={index}
+                            fill={index === 0 || index === 6 ? "#f97316" : "#6366f1"}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="mt-4 flex flex-wrap gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex-1 min-w-[140px] bg-orange-50 dark:bg-orange-900/20 rounded-xl p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Highest Spending Day</p>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        {highestDay ? highestDay.day : "—"}
+                        {highestDay ? <span className="ml-2 font-bold text-orange-500">{c} {parseFloat(highestDay.total).toFixed(2)}</span> : null}
+                      </p>
+                    </div>
+                    <div className="flex-1 min-w-[140px] bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Average Daily Spend</p>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        <span className="font-bold text-indigo-500">{c} {avgSpend.toFixed(2)}</span>
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        )
+      })()}
+
       {activeTab === "overview" && <>
       {/* Date range selector */}
       <div className="flex flex-wrap items-center gap-3">
@@ -234,6 +293,20 @@ export default function ReportsPage() {
         <label className="text-sm text-gray-500">To:</label>
         <input type="date" className="border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           value={dateTo} onChange={e => setDateTo(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Year</label>
+          <select
+            value={year}
+            onChange={e => {
+              const y = parseInt(e.target.value)
+              setDateFrom(`${y}-01-01`)
+              setDateTo(y === currentYear ? todayStr : `${y}-12-31`)
+            }}
+            className="border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
         <div className="flex gap-2 ml-auto">
           {[
             { label: "This month", from: `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`, to: todayStr },

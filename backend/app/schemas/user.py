@@ -72,6 +72,14 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     email_reports_enabled: Optional[bool] = None
+    currency: Optional[str] = None
+
+    @field_validator("currency")
+    @classmethod
+    def upper(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return v.upper()
 
 
 class PasswordChange(BaseModel):

@@ -428,6 +428,42 @@ async def budget_vs_actual(
     return items
 
 
+@router.get("/by-weekday", response_model=list[dict])
+async def by_weekday(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(
+            func.extract("dow", Transaction.date).label("dow"),
+            func.coalesce(func.sum(Transaction.amount), 0).label("total"),
+            func.count().label("n"),
+        )
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.date >= date_from,
+            Transaction.date <= date_to,
+            Transaction.type == TransactionType.expense,
+            Transaction.deleted_at.is_(None),
+        )
+        .group_by(func.extract("dow", Transaction.date))
+        .order_by(func.extract("dow", Transaction.date))
+    )
+    day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    rows = result.all()
+    data = {int(r.dow): {"total": float(r.total), "count": int(r.n)} for r in rows}
+    return [
+        {
+            "day": day_names[i],
+            "total": data.get(i, {}).get("total", 0.0),
+            "count": data.get(i, {}).get("count", 0),
+        }
+        for i in range(7)
+    ]
+
+
 @router.get("/export/pdf")
 async def export_report_pdf(
     date_from: date = Query(...),

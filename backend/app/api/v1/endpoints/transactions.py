@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,26 +69,34 @@ def _apply_filters(query, filters: TransactionFilters):  # type: ignore[no-untyp
                 func.array_to_string(Transaction.tags, ",").ilike(s),
             )
         )
+    if filters.recurring_rule_id:
+        query = query.where(Transaction.recurring_id == filters.recurring_rule_id)
     return query
 
 
 @router.get("", response_model=list[TransactionResponse])
 async def list_transactions(
+    response: Response,
     filters: TransactionFilters = Depends(),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    query = select(Transaction).where(
+    base_query = select(Transaction).where(
         Transaction.user_id == user.id,
         Transaction.deleted_at.is_(None),
     )
-    query = _apply_filters(query, filters)
-    query = (
-        query.order_by(Transaction.date.desc())
+    base_query = _apply_filters(base_query, filters)
+
+    count_result = await db.execute(select(func.count()).select_from(base_query.subquery()))
+    total = count_result.scalar() or 0
+    response.headers["X-Total-Count"] = str(total)
+
+    paged = (
+        base_query.order_by(Transaction.date.desc())
         .offset((filters.page - 1) * filters.limit)
         .limit(filters.limit)
     )
-    result = await db.execute(query)
+    result = await db.execute(paged)
     return result.scalars().all()
 
 

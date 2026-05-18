@@ -28,6 +28,8 @@ export default function TransactionsPage() {
     const init = { page: 1, limit: 20 }
     const accountId = searchParams.get("account_id")
     if (accountId) init.account_id = accountId
+    const search = searchParams.get("search")
+    if (search) init.search = search
     return init
   })
   const [presets, setPresets] = useState(loadPresets)

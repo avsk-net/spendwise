@@ -109,7 +109,7 @@ export default function TopBar({ onMenuClick }) {
                 <ul className="divide-y divide-gray-50 dark:divide-gray-700">
                   {searchResults.map(t => (
                     <li key={t.id}
-                      onClick={() => { setSearchQuery(""); setShowSearch(false); navigate("/transactions") }}
+                      onClick={() => { const q = searchQuery; setSearchQuery(""); setShowSearch(false); navigate(`/transactions?search=${encodeURIComponent(q)}`) }}
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">

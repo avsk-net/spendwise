@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useAuthStore } from "../../../store/authStore"
 import { accountsApi } from "../../accounts/api/accountsApi"
 import { reportsApi } from "../../reports/api/reportsApi"
@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid
 } from "recharts"
-import { TrendingUp, TrendingDown, Wallet, Activity, RefreshCw } from "lucide-react"
+import { TrendingUp, TrendingDown, Wallet, Activity, RefreshCw, Zap } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 const COLORS = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#ec4899"]
@@ -23,31 +23,53 @@ export default function DashboardPage() {
   const today = new Date()
   const [onboardDismissed, setOnboardDismissed] = useState(false)
   const [onboardStep, setOnboardStep] = useState(1)
-  const monthStart = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`
   const todayStr = today.toISOString().split("T")[0]
+
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const t = new Date()
+    return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-01`
+  })
+
+  const isCurrentMonth = selectedMonth === `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-01`
+  const monthEnd = isCurrentMonth
+    ? todayStr
+    : new Date(new Date(selectedMonth).getFullYear(), new Date(selectedMonth).getMonth()+1, 0).toISOString().split("T")[0]
+
+  const monthOptions = useMemo(() => {
+    const now = new Date()
+    const opts = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`
+      const label = d.toLocaleDateString("en", { month: "short", year: "numeric" })
+      opts.push({ value, label })
+    }
+    return opts
+  }, [])
+
   const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => accountsApi.list().then(r => r.data),
   })
 
   const { data: summary } = useQuery({
-    queryKey: ["summary", monthStart],
-    queryFn: () => reportsApi.summary({ date_from: monthStart, date_to: todayStr }).then(r => r.data),
+    queryKey: ["summary", selectedMonth],
+    queryFn: () => reportsApi.summary({ date_from: selectedMonth, date_to: monthEnd }).then(r => r.data),
   })
 
   const { data: daily = [], isLoading: dailyLoading } = useQuery({
-    queryKey: ["daily", monthStart],
-    queryFn: () => reportsApi.daily({ month: monthStart }).then(r => r.data),
+    queryKey: ["daily", selectedMonth],
+    queryFn: () => reportsApi.daily({ month: selectedMonth }).then(r => r.data),
   })
 
   const { data: pie = [], isLoading: pieLoading } = useQuery({
-    queryKey: ["pie", monthStart],
-    queryFn: () => reportsApi.byCategory({ date_from: monthStart, date_to: todayStr }).then(r => r.data),
+    queryKey: ["pie", selectedMonth],
+    queryFn: () => reportsApi.byCategory({ date_from: selectedMonth, date_to: monthEnd }).then(r => r.data),
   })
 
   const { data: budgets = [] } = useQuery({
-    queryKey: ["budgets", monthStart],
-    queryFn: () => budgetsApi.list(monthStart).then(r => r.data),
+    queryKey: ["budgets", selectedMonth],
+    queryFn: () => budgetsApi.list(selectedMonth).then(r => r.data),
   })
 
   const { data: recent = [], isLoading: recentLoading } = useQuery({
@@ -79,6 +101,13 @@ export default function DashboardPage() {
   const expense = parseFloat(summary?.total_expense || 0)
   const net     = parseFloat(summary?.net || 0)
 
+  const daysElapsed = isCurrentMonth
+    ? today.getDate()
+    : new Date(new Date(selectedMonth).getFullYear(), new Date(selectedMonth).getMonth()+1, 0).getDate()
+  const daysInMonth = new Date(new Date(selectedMonth).getFullYear(), new Date(selectedMonth).getMonth()+1, 0).getDate()
+  const dailyRate = daysElapsed > 0 ? expense / daysElapsed : 0
+  const projectedSpend = dailyRate * daysInMonth
+
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
 
   const dailyChartData = daily.map(d => ({
@@ -94,6 +123,20 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page header with month picker */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-800 dark:text-white">Dashboard</h1>
+        <select
+          value={selectedMonth}
+          onChange={e => setSelectedMonth(e.target.value)}
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+        >
+          {monthOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard
@@ -109,6 +152,14 @@ export default function DashboardPage() {
           label="Net (month)" value={`${c} ${net.toLocaleString("en", {minimumFractionDigits:2})}`}
           icon={<Activity size={20} />}
           color={net >= 0 ? "bg-gradient-to-br from-primary-500 to-primary-600" : "bg-gradient-to-br from-orange-500 to-orange-600"} />
+        {isCurrentMonth && (
+          <StatCard
+            label="Projected Spend"
+            value={`${c} ${projectedSpend.toLocaleString("en", { minimumFractionDigits: 2 })}`}
+            subLabel={`${c} ${dailyRate.toFixed(2)}/day`}
+            icon={<Zap size={20} />}
+            color="bg-gradient-to-br from-violet-500 to-violet-600" />
+        )}
       </div>
 
       {/* Net Worth */}
@@ -443,7 +494,7 @@ export default function DashboardPage() {
   )
 }
 
-function StatCard({ label, value, icon, color }) {
+function StatCard({ label, value, icon, color, subLabel }) {
   return (
     <div className={`${color} rounded-2xl p-4 md:p-5 text-white shadow-lg`}>
       <div className="flex justify-between items-start mb-2 md:mb-3">
@@ -451,6 +502,7 @@ function StatCard({ label, value, icon, color }) {
         <div className="opacity-80 shrink-0 ml-1">{icon}</div>
       </div>
       <p className="text-base md:text-xl font-bold leading-tight break-all">{value}</p>
+      {subLabel && <p className="text-white/60 text-xs mt-1">{subLabel}</p>}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2, Target } from "lucide-react"
+import { Plus, Trash2, Target, CopyPlus } from "lucide-react"
 import { useAuthStore } from "../../../store/authStore"
 import { budgetsApi } from "../api/budgetsApi"
 import { transactionsApi } from "../../transactions/api/transactionsApi"
@@ -56,6 +56,41 @@ export default function BudgetsPage() {
     },
   })
 
+  const [isCopying, setIsCopying] = useState(false)
+
+  const copyToNextMonth = async () => {
+    if (!budgets.length) return
+    setIsCopying(true)
+    const d = new Date(selectedMonth)
+    d.setMonth(d.getMonth() + 1)
+    const nextMonth = d.toISOString().split("T")[0].slice(0, 8) + "01"
+    const nextMonthName = d.toLocaleString("default", { month: "long", year: "numeric" })
+
+    const results = await Promise.allSettled(
+      budgets.map(b =>
+        budgetsApi.create({
+          category_id: b.category_id,
+          amount: b.amount,
+          rollover: b.rollover,
+          month: nextMonth,
+        })
+      )
+    )
+
+    const succeeded = results.filter(r => r.status === "fulfilled").length
+    const total = budgets.length
+
+    qc.invalidateQueries({ queryKey: ["budgets"] })
+
+    if (succeeded === total) {
+      toast.success(`Copied ${succeeded} budget${succeeded !== 1 ? "s" : ""} to ${nextMonthName}`)
+    } else {
+      toast.success(`Copied ${succeeded}/${total} budgets (rest already exist)`)
+    }
+
+    setIsCopying(false)
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     create({ ...form, amount: parseFloat(form.amount), rollover: form.rollover, month: selectedMonth })
@@ -81,10 +116,28 @@ export default function BudgetsPage() {
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
-        <button onClick={() => setModal(true)}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-          <Plus size={16} /> Set Budget
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={copyToNextMonth}
+            disabled={isCopying || budgets.length === 0}
+            className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+            {isCopying ? (
+              <>
+                <span className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                Copying…
+              </>
+            ) : (
+              <>
+                <CopyPlus size={15} />
+                Copy to next month
+              </>
+            )}
+          </button>
+          <button onClick={() => setModal(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+            <Plus size={16} /> Set Budget
+          </button>
+        </div>
       </div>
 
       {/* Overall summary */}

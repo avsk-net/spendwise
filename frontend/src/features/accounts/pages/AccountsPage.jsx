@@ -1,10 +1,17 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Plus, Trash2, Wallet, CreditCard, Smartphone, Building2, Coins, Pencil, ExternalLink } from "lucide-react"
+import { Plus, Trash2, Wallet, CreditCard, Smartphone, Building2, Coins, Pencil, ExternalLink, TrendingUp } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { useAuthStore } from "../../../store/authStore"
 import { accountsApi } from "../api/accountsApi"
 import toast from "react-hot-toast"
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+const monthLabel = (ym) => {
+  const mm = parseInt(ym.slice(5), 10)
+  return MONTH_NAMES[mm - 1] || ym
+}
 
 const TYPE_ICONS = {
   cash: Coins,
@@ -34,9 +41,19 @@ export default function AccountsPage() {
   const [editAccount, setEditAccount] = useState(null)
   const [editForm, setEditForm] = useState({ name: "", type: "bank", balance: "0" })
 
+  const [selectedAccountId, setSelectedAccountId] = useState(null)
+
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: () => accountsApi.list().then(r => r.data),
+  })
+
+  const resolvedAccountId = selectedAccountId ?? accounts[0]?.id ?? null
+
+  const { data: balanceHistoryData = [] } = useQuery({
+    queryKey: ["balance-history", resolvedAccountId],
+    queryFn: () => accountsApi.balanceHistory(resolvedAccountId).then(r => r.data),
+    enabled: !!resolvedAccountId,
   })
 
   const { mutate: create, isPending } = useMutation({
@@ -140,14 +157,16 @@ export default function AccountsPage() {
                     </button>
                   </div>
                 </div>
-                <div className="p-4">
+                <div
+                  className="p-4 cursor-pointer"
+                  onClick={() => setSelectedAccountId(a.id)}>
                   <p className="font-semibold text-gray-800 dark:text-white">{a.name}</p>
                   <p className="text-xs text-gray-400 capitalize mb-3">{a.type.replace("_", " ")}</p>
                   <p className={`text-xl font-bold ${bal >= 0 ? "text-gray-900 dark:text-white" : "text-red-500"}`}>
                     {c} {bal.toLocaleString("en", { minimumFractionDigits: 2 })}
                   </p>
                   <button
-                    onClick={() => navigate(`/transactions?account_id=${a.id}`)}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/transactions?account_id=${a.id}`) }}
                     className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-primary-500 transition-colors">
                     <ExternalLink size={11} />
                     View Transactions
@@ -156,6 +175,49 @@ export default function AccountsPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Balance History */}
+      {accounts.length > 0 && (
+        <div className="bg-white dark:bg-gray-800/50 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/50">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={18} className="text-indigo-500" />
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Balance History</h3>
+            </div>
+            <select
+              className="border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={resolvedAccountId || ""}
+              onChange={e => setSelectedAccountId(e.target.value)}>
+              {accounts.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          {balanceHistoryData.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No history data available.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={balanceHistoryData.map(d => ({ ...d, month: monthLabel(d.month) }))}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={60}
+                  tickFormatter={v => `${c}${v.toLocaleString("en", { maximumFractionDigits: 0 })}`} />
+                <Tooltip
+                  formatter={(value) => [`${c} ${parseFloat(value).toFixed(2)}`, "Balance"]}
+                  contentStyle={{ borderRadius: "0.75rem", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                />
+                <Area type="monotone" dataKey="balance" stroke="#6366f1" fill="url(#balanceGradient)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       )}
 

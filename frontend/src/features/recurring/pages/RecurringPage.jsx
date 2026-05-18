@@ -43,6 +43,7 @@ export default function RecurringPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editRule, setEditRule] = useState(null)
   const [editForm, setEditForm] = useState(EMPTY_FORM)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ["recurring"],
@@ -247,11 +248,20 @@ export default function RecurringPage() {
                       title={r.is_active ? "Pause" : "Resume"}>
                       {r.is_active ? <Pause size={15} /> : <Play size={15} />}
                     </button>
-                    <button
-                      onClick={() => { if (window.confirm("Remove this rule?")) remove(r.id) }}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 size={15} />
-                    </button>
+                    {confirmDeleteId === r.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">Sure?</span>
+                        <button onClick={() => { remove(r.id); setConfirmDeleteId(null) }}
+                          className="text-xs font-medium text-red-500 hover:text-red-700 px-1.5 py-0.5 rounded bg-red-50 transition-colors">Yes</button>
+                        <button onClick={() => setConfirmDeleteId(null)}
+                          className="text-xs text-gray-400 px-1.5 py-0.5 rounded bg-gray-50 transition-colors">No</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(r.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

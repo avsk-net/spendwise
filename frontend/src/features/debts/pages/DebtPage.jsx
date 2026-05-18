@@ -181,6 +181,7 @@ function PaymentModal({ debt, onClose }) {
   const { user } = useAuthStore()
   const c = user?.currency || ""
   const [form, setForm] = useState({ ...EMPTY_PAYMENT })
+  const [confirmPaymentId, setConfirmPaymentId] = useState(null)
 
   const { mutate: addPayment, isPending } = useMutation({
     mutationFn: (data) => debtsApi.addPayment(debt.id, data),
@@ -268,11 +269,20 @@ function PaymentModal({ debt, onClose }) {
                     {new Date(p.date).toLocaleDateString()}{p.notes ? ` · ${p.notes}` : ""}
                   </p>
                 </div>
-                <button
-                  onClick={() => { if (window.confirm("Remove this payment?")) deletePayment(p.id) }}
-                  className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                {confirmPaymentId === p.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-500">Remove?</span>
+                    <button onClick={() => { deletePayment(p.id); setConfirmPaymentId(null) }}
+                      className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 transition-colors">Yes</button>
+                    <button onClick={() => setConfirmPaymentId(null)}
+                      className="text-xs font-medium text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded bg-gray-50 hover:bg-gray-100 transition-colors">No</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmPaymentId(p.id)}
+                    className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             ))
           )}
@@ -283,6 +293,7 @@ function PaymentModal({ debt, onClose }) {
 }
 
 function DebtCard({ debt, c, onEdit, onAddPayment, onMarkPaid, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const principal = parseFloat(debt.principal || 0)
   const paid = parseFloat(debt.paid_amount || 0)
   const remaining = principal - paid
@@ -358,11 +369,20 @@ function DebtCard({ debt, c, onEdit, onAddPayment, onMarkPaid, onDelete }) {
           className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors">
           <Pencil size={14} />
         </button>
-        <button
-          onClick={() => { if (window.confirm("Delete this debt?")) onDelete(debt.id) }}
-          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-          <Trash2 size={14} />
-        </button>
+        {confirmDelete ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500 dark:text-gray-400">Delete debt?</span>
+            <button onClick={() => { onDelete(debt.id); setConfirmDelete(false) }}
+              className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 transition-colors">Yes</button>
+            <button onClick={() => setConfirmDelete(false)}
+              className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded bg-gray-50 hover:bg-gray-100 transition-colors">No</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)}
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
     </div>
   )

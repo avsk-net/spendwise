@@ -43,6 +43,19 @@ export default function TopBar({ onMenuClick }) {
     enabled: searchQuery.length >= 2,
   })
 
+  const { data: searchAccounts = [] } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => import("../../features/accounts/api/accountsApi").then(m => m.accountsApi.list().then(r => r.data)),
+    staleTime: 5 * 60 * 1000,
+  })
+  const { data: searchCategories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => import("../../features/transactions/api/transactionsApi").then(m => m.transactionsApi.categories().then(r => r.data)),
+    staleTime: 5 * 60 * 1000,
+  })
+  const accMap = Object.fromEntries(searchAccounts.map(a => [a.id, a]))
+  const catMap = Object.fromEntries(searchCategories.map(c => [c.id, c]))
+
   // Click-outside to close search dropdown
   useEffect(() => {
     function handleClick(e) {
@@ -113,9 +126,11 @@ export default function TopBar({ onMenuClick }) {
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors">
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">
-                          {t.notes || t.date}
+                          {t.notes || "No notes"} · {t.date}
                         </p>
-                        <p className="text-xs text-gray-400">{t.date}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {catMap[t.category_id]?.icon} {catMap[t.category_id]?.name || ""}{catMap[t.category_id]?.name && accMap[t.account_id]?.name ? " · " : ""}{accMap[t.account_id]?.name || ""}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${

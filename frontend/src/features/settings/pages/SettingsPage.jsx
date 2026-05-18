@@ -62,6 +62,7 @@ export default function SettingsPage() {
   const qc = useQueryClient()
 
   const [tab, setTab] = useState("profile")
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const fileRef = useRef(null)
   const [setupData, setSetupData] = useState(null)
   const [qrCodeUrl, setQrCodeUrl] = useState(null)
@@ -283,11 +284,26 @@ export default function SettingsPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 Permanently delete your account and all data. This cannot be undone.
               </p>
-              <button onClick={() => { if (window.confirm("Delete your account? This cannot be undone.")) deleteAccount() }}
-                disabled={deleting}
-                className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-5 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-                {deleting ? "Deleting…" : <><Trash2 size={15} /> Delete My Account</>}
-              </button>
+              {confirmDelete ? (
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm text-red-600 dark:text-red-400 font-medium">This will permanently delete all your data. Are you sure?</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => deleteAccount()} disabled={deleting}
+                      className="flex-1 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-xl disabled:opacity-60 transition-colors">
+                      {deleting ? "Deleting…" : "Yes, delete everything"}
+                    </button>
+                    <button onClick={() => setConfirmDelete(false)}
+                      className="flex-1 py-2 text-sm font-medium border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete(true)} disabled={deleting}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors">
+                  <Trash2 size={15} /> Delete My Account
+                </button>
+              )}
             </div>
           </Card>
         </>

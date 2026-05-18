@@ -45,6 +45,10 @@ export default function TransactionsPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [confirmBulk, setConfirmBulk] = useState(false)
+  const [presetNameModal, setPresetNameModal] = useState(false)
+  const [presetNameInput, setPresetNameInput] = useState("")
+  const [templateNameModal, setTemplateNameModal] = useState(false)
+  const [templateNameInput, setTemplateNameInput] = useState("")
 
   const { data: txns = [], isLoading } = useQuery({
     queryKey: ["transactions", filters],
@@ -100,13 +104,15 @@ export default function TransactionsPage() {
     }
   }
 
-  const savePreset = () => {
-    const name = window.prompt("Name this filter view:")
-    if (!name?.trim()) return
-    const updated = [...presets.filter(p => p.name !== name.trim()), { name: name.trim(), filters }]
+  const savePreset = () => { setPresetNameInput(""); setPresetNameModal(true) }
+  const confirmSavePreset = () => {
+    const name = presetNameInput.trim()
+    if (!name) return
+    const updated = [...presets.filter(p => p.name !== name), { name, filters }]
     setPresets(updated)
     localStorage.setItem(PRESETS_KEY, JSON.stringify(updated))
-    toast.success(`Saved "${name.trim()}"`)
+    toast.success(`Saved "${name}"`)
+    setPresetNameModal(false)
   }
 
   const deletePreset = (name) => {
@@ -180,11 +186,12 @@ export default function TransactionsPage() {
     onError: () => toast.error("Failed to save template"),
   })
 
-  const handleSaveAsTemplate = () => {
-    const name = window.prompt("Template name:")
-    if (!name?.trim()) return
+  const handleSaveAsTemplate = () => { setTemplateNameInput(""); setTemplateNameModal(true) }
+  const confirmSaveTemplate = () => {
+    const name = templateNameInput.trim()
+    if (!name) return
     saveTemplate({
-      name: name.trim(),
+      name,
       type: form.type,
       category_id: form.category_id || undefined,
       account_id: form.account_id || undefined,
@@ -192,6 +199,7 @@ export default function TransactionsPage() {
       notes: form.notes || undefined,
       tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
     })
+    setTemplateNameModal(false)
   }
 
   const applyTemplate = (tmpl) => {
@@ -440,7 +448,10 @@ export default function TransactionsPage() {
                         {catMap[t.category_id]?.name || "—"}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
-                        {t.date} · {accMap[t.account_id]?.name || "—"}
+                        {t.date} · {t.type === "transfer"
+                          ? <span className="text-blue-500">{accMap[t.account_id]?.name || "?"} → {accMap[t.to_account_id]?.name || "?"}</span>
+                          : accMap[t.account_id]?.name || "—"
+                        }
                       </p>
                     </div>
                   </div>
@@ -513,7 +524,16 @@ export default function TransactionsPage() {
                           <span className="text-gray-700 dark:text-gray-200">{catMap[t.category_id]?.name || "—"}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{accMap[t.account_id]?.name || "—"}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
+                        {t.type === "transfer"
+                          ? <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                              <span>{accMap[t.account_id]?.name || "?"}</span>
+                              <span className="text-gray-400">→</span>
+                              <span>{accMap[t.to_account_id]?.name || "?"}</span>
+                            </span>
+                          : accMap[t.account_id]?.name || "—"
+                        }
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                           t.type === "income"     ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
@@ -637,6 +657,50 @@ export default function TransactionsPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save filter preset modal */}
+      {presetNameModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Save filter view</h3>
+            <input
+              autoFocus
+              type="text"
+              value={presetNameInput}
+              onChange={e => setPresetNameInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") confirmSavePreset(); if (e.key === "Escape") setPresetNameModal(false) }}
+              placeholder="Name this view…"
+              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setPresetNameModal(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-100 transition-colors">Cancel</button>
+              <button onClick={confirmSavePreset} disabled={!presetNameInput.trim()} className="px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors disabled:opacity-50">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save template modal */}
+      {templateNameModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Template name</h3>
+            <input
+              autoFocus
+              type="text"
+              value={templateNameInput}
+              onChange={e => setTemplateNameInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") confirmSaveTemplate(); if (e.key === "Escape") setTemplateNameModal(false) }}
+              placeholder="Template name…"
+              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 mb-4"
+            />
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setTemplateNameModal(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-100 transition-colors">Cancel</button>
+              <button onClick={confirmSaveTemplate} disabled={!templateNameInput.trim()} className="px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-colors disabled:opacity-50">Save</button>
             </div>
           </div>
         </div>

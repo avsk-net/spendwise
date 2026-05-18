@@ -151,7 +151,7 @@ export default function SavingGoalsPage() {
               goal={goal}
               currency={c}
               onEdit={() => openEdit(goal)}
-              onDelete={() => { if (window.confirm("Delete this goal?")) remove(goal.id) }}
+              onDelete={() => remove(goal.id)}
               onContribute={() => { setContributeTarget(goal); setContributeAmount("") }}
             />
           ))}
@@ -171,7 +171,7 @@ export default function SavingGoalsPage() {
                 goal={goal}
                 currency={c}
                 onEdit={() => openEdit(goal)}
-                onDelete={() => { if (window.confirm("Delete this goal?")) remove(goal.id) }}
+                onDelete={() => remove(goal.id)}
               />
             ))}
           </div>
@@ -298,6 +298,7 @@ export default function SavingGoalsPage() {
 }
 
 function GoalCard({ goal, currency: c, onEdit, onDelete, onContribute }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const pct      = goal.percent ?? 0
   const saved    = parseFloat(goal.current_amount)
   const target   = parseFloat(goal.target_amount)
@@ -338,10 +339,20 @@ function GoalCard({ goal, currency: c, onEdit, onDelete, onContribute }) {
             className="p-1.5 text-gray-300 hover:text-gray-500 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
             <Pencil size={13} />
           </button>
-          <button onClick={onDelete}
-            className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-            <Trash2 size={13} />
-          </button>
+          {confirmDelete ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Delete goal?</span>
+              <button onClick={() => { onDelete(); setConfirmDelete(false) }}
+                className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 transition-colors">Yes</button>
+              <button onClick={() => setConfirmDelete(false)}
+                className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded bg-gray-50 hover:bg-gray-100 transition-colors">No</button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmDelete(true)}
+              className="p-1.5 text-gray-300 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       </div>
 

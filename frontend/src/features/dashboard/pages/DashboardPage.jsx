@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, useMemo } from "react"
+import toast from "react-hot-toast"
 import { useAuthStore } from "../../../store/authStore"
 import { accountsApi } from "../../accounts/api/accountsApi"
 import { reportsApi } from "../../reports/api/reportsApi"
@@ -11,7 +12,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid
 } from "recharts"
-import { TrendingUp, TrendingDown, Wallet, Activity, RefreshCw, Zap } from "lucide-react"
+import { TrendingUp, TrendingDown, Wallet, Activity, RefreshCw, Zap, Plus, X } from "lucide-react"
 import { Link, useNavigate } from "react-router-dom"
 
 const COLORS = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#ec4899"]
@@ -19,11 +20,15 @@ const COLORS = ["#22c55e","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f9
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const c = user?.currency || ""
   const today = new Date()
   const [onboardDismissed, setOnboardDismissed] = useState(false)
   const [onboardStep, setOnboardStep] = useState(1)
   const todayStr = today.toISOString().split("T")[0]
+
+  const [quickAdd, setQuickAdd] = useState(false)
+  const [qaForm, setQaForm] = useState({ type: "expense", account_id: "", category_id: "", amount: "", date: new Date().toISOString().split("T")[0], notes: "" })
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const t = new Date()
@@ -109,6 +114,19 @@ export default function DashboardPage() {
   const projectedSpend = dailyRate * daysInMonth
 
   const catMap = Object.fromEntries(categories.map(c => [c.id, c]))
+
+  const { mutate: quickCreate, isPending: quickCreating } = useMutation({
+    mutationFn: (data) => transactionsApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] })
+      qc.invalidateQueries({ queryKey: ["summary"] })
+      qc.invalidateQueries({ queryKey: ["transactions"] })
+      toast.success("Transaction added")
+      setQuickAdd(false)
+      setQaForm({ type: "expense", account_id: "", category_id: "", amount: "", date: new Date().toISOString().split("T")[0], notes: "" })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || "Failed"),
+  })
 
   const dailyChartData = daily.map(d => ({
     date: d.date.slice(5),
@@ -417,6 +435,78 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {/* Quick-add modal */}
+      {quickAdd && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md p-6">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="font-semibold text-gray-800 dark:text-white">Quick Add</h3>
+              <button onClick={() => setQuickAdd(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Type toggle */}
+            <div className="flex gap-2 mb-4">
+              {["expense","income"].map(t => (
+                <button key={t} onClick={() => setQaForm(f => ({ ...f, type: t, category_id: "" }))}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                    qaForm.type === t
+                      ? t === "expense" ? "bg-red-500 text-white" : "bg-green-500 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                  }`}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <input type="number" step="0.01" placeholder="Amount" required
+                value={qaForm.amount} onChange={e => setQaForm(f => ({ ...f, amount: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+
+              <select value={qaForm.account_id} onChange={e => setQaForm(f => ({ ...f, account_id: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="">Select account…</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+
+              <select value={qaForm.category_id} onChange={e => setQaForm(f => ({ ...f, category_id: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="">Select category…</option>
+                {categories.filter(cat => cat.type === "both" || cat.type === qaForm.type).map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                ))}
+              </select>
+
+              <input type="date" value={qaForm.date} onChange={e => setQaForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+
+              <input type="text" placeholder="Notes (optional)"
+                value={qaForm.notes} onChange={e => setQaForm(f => ({ ...f, notes: e.target.value }))}
+                className="w-full border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <button
+              onClick={() => {
+                if (!qaForm.amount || !qaForm.account_id || !qaForm.category_id) return toast.error("Fill in amount, account and category")
+                quickCreate({ ...qaForm, amount: parseFloat(qaForm.amount), tags: [] })
+              }}
+              disabled={quickCreating}
+              className="mt-5 w-full py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-60">
+              {quickCreating ? "Adding…" : "Add Transaction"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating quick-add button */}
+      <button
+        onClick={() => setQuickAdd(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-20 active:scale-95"
+        aria-label="Add transaction"
+      >
+        <Plus size={24} />
+      </button>
 
       {/* Onboarding wizard */}
       {showOnboarding && (
